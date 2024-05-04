@@ -31,6 +31,10 @@ contract Event {
     enum EventStatus { ACTIVE, DISTRIBUTED, ENDED, CANCELED }
     uint constant enumLength = 4;
 
+    struct ParticipantDouble{
+        uint index;
+    }
+
     struct Participant {
         address participant;
         string firstname;
@@ -52,7 +56,7 @@ contract Event {
     Expense[] public expenses_a;
 
     // Data structure
-    mapping(address => Participant) public participant_m;
+    mapping(address => ParticipantDouble) public participant_m;
     mapping(address => Expense) public expenses_m;
 
     constructor(
@@ -81,7 +85,7 @@ contract Event {
         uint _seats
     ) public payable returns(bool) {
         // TODO: change it to error
-        require(msg.value == eventFee, "the correct eventFee has to be paid");
+        require(msg.value == eventFee, "The correct eventFee has to be paid");
         require(!userJoined(msg.sender), "the user have already joined the event");
         require(eventStatus == EventStatus.ACTIVE, "this event isn't active anymore");
 
@@ -105,7 +109,7 @@ contract Event {
             attended: true
         });
         participants_a.push(participants_s);
-        participant_m[msg.sender] = participants_s;
+        participant_m[msg.sender].index = participants_a.length - 1;
 
         //TODO: for test purpose
         testSender = msg.sender;
@@ -132,55 +136,76 @@ contract Event {
         return true;
     }
 
-    function testMappingStructs() external onlyParticipants notOwner returns(bool) {
-        participant_m[msg.sender].firstname = "Mark";
-    }
-
-    function cancelEvent() external onlyParticipants notOwner returns(bool) {
-        require(eventStatus == EventStatus.ACTIVE, "this event isn't active anymore");
-        // Pay back the Event fee
-        uint _event_fee = participant_m[msg.sender].event_fee;
-        console.log("Contract:::: _event_fee: ", _event_fee);
-        (bool success, ) = msg.sender.call{value: _event_fee}("");
-        require(success, "send back event fee transaction failed");
-
-        console.log("Contract:::: _event_fee was sended");
-        // The participant leaves the event
-        participant_m[msg.sender].attended = false;
-        // The event fee was paid back
-        participant_m[msg.sender].event_fee = 0;
-        // Remove participant from participants list
-        delete participant_m[msg.sender];
-        // Reduce participant count
-        participantCount--;
-
-        // OR
-
-        // The Date/Time of the event is more than 24 hours away OR Event Status == ENDED OR Event Status == DISTRIBUTED
-        // Relocated the Event Fee of the participant to Compensation Pool
-
+    function testMappingStructs() external notOwner onlyParticipants returns(bool) {
+        uint index = participant_m[msg.sender].index;
+        participants_a[index].firstname = "Mark";
         return true;
     }
 
-//    function _print_array(uint256[] array) external view returns(bool) {
-//        for(let i=0; < array.length; i++) {
-//            console.log(array[i]);
-//        }
-//        return expenses_m[_addr1].amount;
-//    }
-
-
-    function balanceOf(address _addr1) external view returns(uint256) {
-        // console.log("balanceOf - ", expenses_m[_addr1]);
-        return expenses_m[_addr1].amount;
+    function cancelEvent() external onlyOwner returns(bool) {
+        require(eventStatus == EventStatus.ACTIVE, "this event isn't active anymore");
+        uint participantsCounter = participants_a.length;
+        for(uint i=0; i < participantsCounter; i++) {
+            uint _event_fee = participants_a[0].event_fee;
+            address participant = participants_a[0].participant;
+            (bool success, ) = participant.call{value: _event_fee}("");
+            require(success, "send back event fee transaction failed");
+            // The participant leaves the event
+            _removeParticipants(0);
+            delete participant_m[msg.sender];
+            // Reduce participant count
+            participantCount--;
+        }
+        setEventStatus(EventStatus.CANCELED);
+        return true;
     }
 
+    function cancelParticipants() external notOwner onlyParticipants returns(bool) {
+        require(eventStatus == EventStatus.ACTIVE, "this event isn't active anymore");
+        // Pay back the Event fee
+        uint index = participant_m[msg.sender].index;
+        uint _event_fee = participants_a[index].event_fee;
+
+        (bool success, ) = msg.sender.call{value: _event_fee}("");
+        require(success, "send back event fee transaction failed");
+        console.log("Contract:::: _event_fee was sended");
+
+        // The participant leaves the event
+        _removeParticipants(index);
+        delete participant_m[msg.sender];
+
+        // Reduce participant count
+        participantCount--;
+
+        // TODO: The Date/Time of the event is more than 24 hours away OR Event Status == ENDED OR Event Status == DISTRIBUTED
+        return true;
+    }
+
+    function balanceOf(address _addr1) external view returns(uint256) {
+        // TODO: optimize it
+        for(uint i = 0; i < participants_a.length; i++) {
+            if (participants_a[i].participant == _addr1) {
+                return participants_a[i].event_fee;
+            }
+        }
+        require(false, "No balance to this address");
+        return 0;
+    }
+
+    // TODO: Test this function more
     function userJoined(address _addr1) public view returns(bool) {
-        return participant_m[_addr1].participant != address(0);
+        // TODO: optimize it
+        for(uint i = 0; i < participants_a.length; i++) {
+            if (participants_a[i].participant == _addr1) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function userJoined_a(address _addr1) external view returns(address) {
-        return participant_m[_addr1].participant;
+        uint index = participant_m[_addr1].index;
+        return participants_a[index].participant;
     }
 
     function getParticipants() external view returns (Participant[] memory) {
@@ -188,7 +213,9 @@ contract Event {
     }
 
     function getParticipants_m() external view returns (string memory) {
-        return participant_m[msg.sender].firstname;
+        uint index = participant_m[msg.sender].index;
+        console.log("index", index);
+        return participants_a[index].firstname;
     }
 
     function getExpenses() external view returns (Expense[] memory) {
@@ -277,5 +304,12 @@ contract Event {
     modifier notOwner() {
         require(msg.sender != owner, "As an owner you can't call this function");
         _;
+    }
+
+    function _removeParticipants(uint index) private {
+        // Move the last element into the place to delete
+        participants_a[index] = participants_a[participants_a.length - 1];
+        // Remove the last element
+        participants_a.pop();
     }
 }

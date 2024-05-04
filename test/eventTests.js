@@ -93,6 +93,15 @@ describe('Event', function () {
                 {value: _eventFee}
             )
         ).to.be.revertedWith("the user have already joined the event");
+
+        event.connect(user3).joinEvent(
+            "Marion",
+            "Hamster",
+            "hamster@reher.hostingkunde.de",
+            "+49 176 5673124234",
+            8,
+            {value: _eventFee}
+        )
     });
 
     it('event status changes', async function () {
@@ -165,16 +174,6 @@ describe('Event', function () {
         const {event, owner, user1, user2, user3, user4} = await loadFixture(deployContractAndSetVariables);
         let _eventFee = parseEther("1.0");
 
-        // const url = process.env.TESTNET_RPC_URL_LOCAL;
-        // const provider = new JsonRpcProvider(url);
-        // let walletUser0 = new Wallet(process.env.TESTNET_PRIVATE_KEY_USER0, provider);
-        // let walletUser1 = new Wallet(process.env.TESTNET_PRIVATE_KEY_USER1, provider);
-        // let walletUser2 = new Wallet(process.env.TESTNET_PRIVATE_KEY_USER2, provider);
-        // let walletUser3 = new Wallet(process.env.TESTNET_PRIVATE_KEY_USER3, provider);
-        // let walletUser4 = new Wallet(process.env.TESTNET_PRIVATE_KEY_USER4, provider);
-
-        // console.log("balanceContractETH: ", ethers.formatEther((await provider.getBalance(event.getAddress())).toString()));
-
         // const tx = await user2.connect(provider).sendTransaction({
         //   to: event.getAddress(),
         //   value: parseEther("0.8"),
@@ -195,8 +194,7 @@ describe('Event', function () {
 
         expect(await event.participantCount()).to.equal(BigInt("1"));
         const userBalance1 = await event.balanceOf(user1.address);
-        // TODO: explain
-        expect(userBalance1).to.equal(0);
+        expect(userBalance1).to.equal(parseEther("1.0"));
 
         await event.connect(user2).joinEvent(
             "Maria",
@@ -209,8 +207,7 @@ describe('Event', function () {
 
         expect(await event.participantCount()).to.equal(BigInt("2"));
         const userBalance2 = await event.balanceOf(user2.address);
-        // TODO: explain
-        expect(userBalance2).to.equal(0);
+        expect(userBalance2).to.equal(parseEther("1.0"));
 
         await event.connect(user3).joinEvent(
             "Mario",
@@ -223,8 +220,7 @@ describe('Event', function () {
 
         expect(await event.participantCount()).to.equal(BigInt("3"));
         const userBalance3 = await event.balanceOf(user3.address);
-        // TODO: explain
-        expect(userBalance3).to.equal(0);
+        expect(userBalance3).to.equal(parseEther("1.0"));
 
         const getParticipants = await event.getParticipants();
         console.log("getParticipants: ", getParticipants);
@@ -339,44 +335,138 @@ describe('Event', function () {
         expect(getParticipants[0].telephone).to.equal("_telephone");
         expect(getParticipants[0].event_fee).to.equal("1000000000000000000");
         expect(getParticipants[0].seats).to.equal(BigInt("6"));
-        expect(getParticipants[0].attended).to.equal(true);
 
         const participantCount = await event.participantCount();
         expect(participantCount).to.equal(1);
         console.log("participantCount: ", participantCount);
 
-        const balances = await event.balanceOf(user2.address);
+        const balances = await event.balanceOf(owner.address);
         console.log("balances: ", balances);
     });
 
-    // TODO: fix the test "incorrect fee"
     it('incorrect fee', async function () {
         const {event, owner, user1, user2, user3, user4} = await loadFixture(deployContractAndSetVariables);
 
-        const tx = await event.connect(user4).joinEvent(
-            "John",
-            "Smith",
-            "smith@reher.hostingkunde.de",
-            "+49 176 1231242341",
-            8,
-            {value: parseEther("1.0")},
-        );
+        await expect(
+            event.connect(user4).joinEvent(
+                "John",
+                "Smith",
+                "smith@reher.hostingkunde.de",
+                "+49 176 1231242341",
+                8,
+                {value: parseEther("1.5")},
+            )
+        ).to.be.revertedWith("The correct eventFee has to be paid");
 
-        const participantCount = await event.participantCount();
-        console.log("participantCount: ", participantCount);
+        expect(await event.participantCount()).to.equal(BigInt("0"));
 
-        const getParticipants = await event.getParticipants();
-        console.log("getParticipants: ", getParticipants);
+        await expect(
+            event.connect(user4).joinEvent(
+                "John",
+                "Smith",
+                "smith@reher.hostingkunde.de",
+                "+49 176 1231242341",
+                8,
+                {value: parseEther("0")},
+            )
+        ).to.be.revertedWith("The correct eventFee has to be paid");
+
+        expect(await event.participantCount()).to.equal(BigInt("0"));
+
+        await expect(
+            event.connect(user4).joinEvent(
+                "John",
+                "Smith",
+                "smith@reher.hostingkunde.de",
+                "+49 176 1231242341",
+                8,
+                {value: parseEther("9999")},
+            )
+        ).to.be.revertedWith("The correct eventFee has to be paid");
+
+        expect(await event.participantCount()).to.equal(BigInt("0"));
+
+        await expect(
+            event.connect(user4).joinEvent(
+                "John",
+                "Smith",
+                "smith@reher.hostingkunde.de",
+                "+49 176 1231242341",
+                8,
+                {value: parseEther("0.99999999999999999")},
+            )
+        ).to.be.revertedWith("The correct eventFee has to be paid");
+
+        expect(await event.participantCount()).to.equal(BigInt("0"));
+
     });
 
     it('check the participant count', async function () {
         const {event, owner} = await loadFixture(deployContractAndSetVariables);
 
-        console.log("Count: ", await event.participantCount());
+        // console.log("Count: ", await event.participantCount());
         expect(await event.participantCount()).to.equal(BigInt("0"));
     });
 
-    it('cancel event', async function () {
+    it('cancel the complete event', async function () {
+        const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
+        let _eventFee = parseEther("1.0");
+
+        await expect(event.connect(user1).cancelEvent()).to.be.revertedWith("Only the owner can call this function");
+        await expect(event.connect(user2).cancelEvent()).to.be.revertedWith("Only the owner can call this function");
+
+        await event.connect(owner).joinEvent(
+            "Mira",
+            "Husten",
+            "husten@reher.hostingkunde.de",
+            "+49 152 4251242341",
+            6,
+            {value: _eventFee}
+        );
+
+        await event.connect(user1).joinEvent(
+            "John",
+            "Smith",
+            "smith@reher.hostingkunde.de",
+            "+49 176 1231242341",
+            8,
+            {value: _eventFee}
+        );
+
+        await event.connect(user2).joinEvent(
+            "Maria",
+            "Schuster",
+            "schuster@reher.hostingkunde.de",
+            "+49 176 2231242342",
+            8,
+            {value: _eventFee}
+        );
+
+        await event.connect(user3).joinEvent(
+            "Mario",
+            "Feldhalter",
+            "feldhalter@reher.hostingkunde.de",
+            "+49 176 3231242343",
+            2,
+            {value: _eventFee}
+        );
+
+        await event.connect(user4).joinEvent(
+            "John",
+            "Smith",
+            "smith@reher.hostingkunde.de",
+            "+49 176 1231242341",
+            8,
+            {value: _eventFee}
+        )
+        await event.cancelEvent();
+        // Check that no participants are in the event
+        expect(await event.participantCount()).to.equal(BigInt("0"));
+        // Check the Cancel Status
+        expect(await event.eventStatus()).to.equal("3");
+    });
+
+    it('cancel participant of an event', async function () {
         const {event, owner, user1, user2, user5} = await loadFixture(deployContractAndSetVariables);
         expect(await event.participantCount()).to.equal(BigInt("0"));
         let _eventFee = parseEther("1.0");
@@ -391,17 +481,23 @@ describe('Event', function () {
             {value: _eventFee}
         );
         expect(await event.participantCount()).to.equal(BigInt("1"));
-        console.log("getParticipants Mapping: ", await event.connect(user1).getParticipants_m());
+        // console.log("getParticipants Mapping: ", await event.connect(user1).getParticipants_m());
 
-        await expect(event.connect(user2).cancelEvent()).to.be.revertedWith("Only participants can use this function");
-        await expect(event.connect(user5).cancelEvent()).to.be.revertedWith("Only participants can use this function");
+        // Cancel from a user who hasn't joined the event
+        await expect(event.connect(user2).cancelParticipants()).to.be.revertedWith("Only participants can use this function");
+        await expect(event.connect(user5).cancelParticipants()).to.be.revertedWith("Only participants can use this function");
 
-        await event.connect(user1).testMappingStructs();
+        await event.connect(user1).cancelParticipants();
         // await expect(await event.connect(user1).cancelEvent()).to.be.equal(true);
-        console.log("getParticipants 2: ", await event.getParticipants());
-        console.log("getParticipants Mapping: ", await event.connect(user1).getParticipants_m());
-        // expect(await event.participantCount()).to.equal(BigInt("0"));
+        // console.log("getParticipants 2: ", await event.getParticipants());
+        // console.log("getParticipants Mapping: ", await event.connect(user1).getParticipants_m());
+        await expect(await event.participantCount()).to.equal(BigInt("0"));
+
+        // The owner can not cancel the event
+        await expect(event.connect(owner).cancelParticipants()).to.be.revertedWith("As an owner you can't call this function");
     });
+
+
 
     // it('should not allow withdrawals above .1 ETH at a time', async function () {
     //   const { faucet, withdrawAmount } = await loadFixture(
