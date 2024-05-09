@@ -16,6 +16,11 @@ module.exports = {
       accounts: [process.env.TESTNET_PRIVATE_KEY_LOCAL]
     }
   },
+  settings: {
+    optimizer: {
+      enabled: true,
+    },
+  },
   etherscan: {
     apiKey: process.env.ETHERSCAN_KEY
   }
