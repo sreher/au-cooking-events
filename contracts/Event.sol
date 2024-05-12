@@ -15,15 +15,15 @@ contract Event {
     uint public participantCount;
     bool private compensationCalculated;
     EventStatus public eventStatus;
-
     // TODO: remove when kitchen feature is implemented
     uint public eventSeats;
-    address [] public kitchenList;
+
 
     // Constants
     uint constant private DAY_IN_SECONDS = 86400;
     uint constant private HOUR_IN_SECONDS = 3600;
     uint constant private MIN_PARTICIPANTS = 4;
+    uint constant private ENDED_TIME_FRAME = 5 * HOUR_IN_SECONDS;
     uint constant private CLOSING_TIME_FRAME = 24 * HOUR_IN_SECONDS;
     uint constant private WITHDRAW_TIME_FRAME = 48 * HOUR_IN_SECONDS;
     uint constant private MAX_AMOUNT_TO_RECAIM = 0.0040 * 1e18;
@@ -80,10 +80,6 @@ contract Event {
         eventFee = _eventFee;
     }
 
-    function setTitle (string memory _title) public {
-        title = _title;
-    }
-
     function joinEvent (
         string memory _firstname,
         string memory _lastname,
@@ -93,13 +89,13 @@ contract Event {
     ) public payable returns(bool) {
         // TODO: change it to error
         require(msg.value == eventFee, "The correct eventFee has to be paid");
-        require(!userJoined(msg.sender), "the user have already joined the event");
-        require(eventStatus == EventStatus.ACTIVE, "this event isn't active anymore");
+        require(!userJoined(msg.sender), "The user have already joined the event");
+        require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
 
         // TODO: remove this later when the kitchen feature is implemented
         if (participants_a.length > 0) {
             // with the first participant the eventSeats will be set
-            require(participants_a.length < eventSeats, "there are no more seats");
+            require(participants_a.length < eventSeats, "There are no more seats");
         }
 
         // one hour/day before the event the registration will be closed
@@ -133,9 +129,7 @@ contract Event {
 
         // the first participant will be the host
         if (participants_a.length == 1) {
-            //require(_seats > 4, "The minimum seats are four");
-            // TODO: Change this after testing
-            require(_seats > 1, "The minimum seats are four");
+            require(_seats >= 4, "The minimum seats are four");
             eventSeats = _seats;
         }
 
@@ -144,7 +138,7 @@ contract Event {
     }
 
     function cancelEvent() external onlyOwner returns(bool) {
-        require(eventStatus == EventStatus.ACTIVE, "this event isn't active anymore");
+        require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
         uint participantsCounter = participants_a.length;
         for(uint i=0; i < participantsCounter; i++) {
             uint _event_fee = participants_a[0].event_fee;
@@ -163,7 +157,7 @@ contract Event {
     }
 
     function cancelParticipant() external notOwner onlyParticipants returns(bool) {
-        require(eventStatus == EventStatus.ACTIVE, "this event isn't active anymore");
+        require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
 
         // Pay back the Event fee
         uint index = participant_m[msg.sender].index;
@@ -200,6 +194,10 @@ contract Event {
         uint index = participant_m[msg.sender].index;
         expenses_a[index].amount = amount;
         expenses_a[index].reclaimed = true;
+
+        // TODO: to be tested
+        // If the withdraw function will call X hours after the eventDate, then the Event Status will set to Ended
+        setEventStatusEnded();
         return true;
     }
 
@@ -214,7 +212,7 @@ contract Event {
 //                    participant: expenses_a[i].participant,
 //                    amount: expenses_a[i].amount,
 //                    confirmed: expenses_a[i].confirmed,
-//                    widthdraw: expenses_a[i].widthdraw,
+//                    withdraw: expenses_a[i].withdraw,
 //                });
 //                expenses.push(expense);
 //            }
@@ -233,25 +231,14 @@ contract Event {
         uint index = participant_m[_addr1].index;
         expenses_a[index].confirmed = true;
 
-        return true;
-    }
-
-    function checkExpensesAndConfirmation() view internal onlyParticipants returns(bool) {
-        // When all confirmed and reclaim their expenses or time over
-        console.log("checkExpensesAndConfirmation");
-        for (uint i = 0; i < expenses_a.length; i++) {
-            if (!expenses_a[i].reclaimed || !expenses_a[i].confirmed) {
-                // When the request is out of withdraw time, then the process should continue, ex. the calc the compensation
-                if(block.timestamp >= eventDate && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME) {
-                    return false;
-                }
-            }
-        }
+        // TODO: to be tested
+        // If the withdraw function will call X hours after the eventDate, then the Event Status will set to Ended
+        setEventStatusEnded();
         return true;
     }
 
     function calcEventCompensation() internal onlyParticipants returns(bool) {
-        console.log("calcEventCompensation");
+//        console.log("calcEventCompensation");
         // When all confirmed and reclaim their expenses or time over
         uint allEventFees = 0;
         uint allExpenses = 0;
@@ -264,9 +251,10 @@ contract Event {
             confirmedParticipation += expenses_a[i].confirmed ? 1 : 0;
         }
 
+        require(confirmedParticipation > 0, "There are no confirmed participants in the event");
 //        console.log("allEventFees:           ", allEventFees);
-//        console.log("allExpenses:           ", allExpenses);
-//        console.log("confirmedParticipation:", confirmedParticipation);
+//        console.log("allExpenses:            ", allExpenses);
+//        console.log("confirmedParticipation: ", confirmedParticipation);
         // Distributing the event fees of non-participants
         if (participantCount != confirmedParticipation) {
             penalty = (participantCount - confirmedParticipation) * eventFee / confirmedParticipation;
@@ -294,11 +282,16 @@ contract Event {
 
     function withdraw() external onlyParticipants returns(bool) {
         require(eventStatus == EventStatus.DISTRIBUTED || eventStatus == EventStatus.ENDED, "Expenses can only be entered for distributed or ended events");
-        require(block.timestamp >= eventDate + WITHDRAW_TIME_FRAME, "You can only widthdraw your ether after the withdraw time");
+        require(block.timestamp >= eventDate + ENDED_TIME_FRAME && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME, "You can only withdraw your ether when the event has ended and within the withdraw time frame");
         // At the moment the check is not necessary because the withdraw is only possible afer the withdraw time
         // require(checkExpensesAndConfirmation(), "Not all participation are confirmed or not all expenses reclaimed");
 
+        // TODO: It should be possible to withdraw your money earlier, when all participants are confirmed.
+        // TODO: What happens, when no participants are confirmed in the time frame?
+        // TODO: What happens, when no participants withdraw their money?
+
         if (!compensationCalculated) {
+            // Only run once, to calculate the event compensation
             calcEventCompensation();
             compensationCalculated = true;
         }
@@ -315,38 +308,40 @@ contract Event {
 //        console.log("User Balance after: ", msg.sender.balance);
         expenses_a[_index].withdraw = true;
 
-        // TODO: set event status to ended
+        // TODO: to be tested
+        // If the withdraw function will call X hours after the eventDate, then the Event Status will set to Ended
+        setEventStatusEnded();
 
         return true;
     }
 
-//    // TODO:Testing
-//    function withdraw() external payable onlyParticipants returns(bool) {
-//        require(eventStatus == EventStatus.DISTRIBUTED || eventStatus == EventStatus.ENDED, "Expenses can only be entered for distributed or ended events");
-//        require(block.timestamp > eventDate + WITHDRAW_TIME_FRAME, "You can withdraw your expenses after the withdraw time");
-//        // TODO: Take the ether only, when all participants claim their expenses and confirmed
-//
-//        uint index = participant_m[msg.sender].index;
-//        require(expenses_a[index].amount == msg.value, "Please pay the correct amount");
-//        expenses_a[index].paided = true;
-//        return true;
-//    }
-
     /************************  Utility functions  ************************************************/
 
-//    function balanceOf(address _addr1) external view returns(uint256) {
-//        // TODO: optimize it
-//        for(uint i = 0; i < participants_a.length; i++) {
-//            if (participants_a[i].participant == _addr1) {
-//                return participants_a[i].event_fee;
-//            }
-//        }
-//        require(false, "No balance to this address");
-//        return 0;
-//    }
+    function checkExpensesAndConfirmation() view internal onlyParticipants returns(bool) {
+        // When all confirmed and reclaim their expenses or time over
+//        console.log("checkExpensesAndConfirmation");
+        for (uint i = 0; i < expenses_a.length; i++) {
+            if (!expenses_a[i].reclaimed || !expenses_a[i].confirmed) {
+                // When the request is out of withdraw time, then the process should continue, ex. the calc the compensation
+                if(block.timestamp >= eventDate && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    function setEventStatusEnded() internal {
+        require(eventStatus == EventStatus.DISTRIBUTED || eventStatus == EventStatus.ENDED, "The event has been distributed and is not in finished status.");
+        // Set the event to Ended, when a function call happens later than the Ended Time
+        if (block.timestamp >= eventDate + ENDED_TIME_FRAME && eventStatus != EventStatus.ENDED) {
+            eventStatus = EventStatus.ENDED;
+        }
+    }
 
     // TODO: Test this function more
     function userJoined(address _addr1) public view returns(bool) {
+        require(_addr1 != address(0));
         // TODO: optimize it
         for(uint i = 0; i < participants_a.length; i++) {
             if (participants_a[i].participant == _addr1) {
@@ -355,7 +350,6 @@ contract Event {
         }
         return false;
     }
-
 
     function getParticipants_m() external view returns (string memory) {
         uint index = participant_m[msg.sender].index;
@@ -414,8 +408,6 @@ contract Event {
 
     function setEventStatus(EventStatus _eventStatus) public onlyOwner {
         // TODO: prevent "value out-of-bounds" errors
-        // require(_eventStatus > EventStatus.ACTIVE);
-        // require(_eventStatus < EventStatus.ENDED);
         eventStatus = _eventStatus;
     }
 
