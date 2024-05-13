@@ -18,7 +18,6 @@ contract Event {
     // TODO: remove when kitchen feature is implemented
     uint public eventSeats;
 
-
     // Constants
     uint constant private DAY_IN_SECONDS = 86400;
     uint constant private HOUR_IN_SECONDS = 3600;
@@ -28,11 +27,11 @@ contract Event {
     uint constant private WITHDRAW_TIME_FRAME = 48 * HOUR_IN_SECONDS;
     uint constant private MAX_AMOUNT_TO_RECAIM = 0.0040 * 1e18;
 
-    // Events
-    event Received(address, uint);
-
+    // Enums
     enum EventStatus { ACTIVE, DISTRIBUTED, ENDED, CANCELED }
+    enum ParticipantsRoles { UNDEFINED, HOST, STARTER, MAINDISH, DESSERT }
 
+    // Structs
     struct ParticipantDouble{
         uint index;
         bool isValue;
@@ -47,6 +46,7 @@ contract Event {
         uint event_fee;
         uint seats;
         bool attended;
+        ParticipantsRoles role;
     }
     Participant[] public participants_a;
 
@@ -55,16 +55,13 @@ contract Event {
         uint amount;
         bool reclaimed;
         bool confirmed;
-        // TODO: can remove
-        bool paided;
         uint event_compensation;
         bool withdraw;
     }
-    Expense[] private expenses_a;
+    Expense[] public expenses_a;
 
     // Data structure
     mapping(address => ParticipantDouble) public participant_m;
-    mapping(address => Expense) public expenses_m;
 
     constructor(
         string memory _title,
@@ -87,7 +84,7 @@ contract Event {
         string memory _telephone,
         uint _seats
     ) public payable returns(bool) {
-        // TODO: change it to error
+        // TODO: change it to error functions
         require(msg.value == eventFee, "The correct eventFee has to be paid");
         require(!userJoined(msg.sender), "The user have already joined the event");
         require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
@@ -99,7 +96,7 @@ contract Event {
         }
 
         // one hour/day before the event the registration will be closed
-        require(block.timestamp < (eventDate - CLOSING_TIME_FRAME) , "this event is closed");
+        require(block.timestamp < (eventDate - CLOSING_TIME_FRAME) , "This event is closed");
 
         Participant memory participants_s = Participant({
             participant: msg.sender,
@@ -109,7 +106,8 @@ contract Event {
             telephone: _telephone,
             event_fee: msg.value,
             seats: _seats,
-            attended: true
+            attended: true,
+            role: ParticipantsRoles.UNDEFINED
         });
         participants_a.push(participants_s);
         participant_m[msg.sender].index = participants_a.length - 1;
@@ -119,13 +117,12 @@ contract Event {
             participant: msg.sender,
             amount: 0,
             reclaimed: false,
-            paided: false,
             confirmed: false,
             event_compensation: 0,
             withdraw: false
         });
         expenses_a.push(expense_s);
-        expenses_m[msg.sender] = expense_s;
+//        expenses_m[msg.sender] = expense_s;
 
         // the first participant will be the host
         if (participants_a.length == 1) {
@@ -146,13 +143,17 @@ contract Event {
             (bool success, ) = participant.call{value: _event_fee}("");
             require(success, "send back event fee transaction failed");
             // The participant leaves the event
-            _removeParticipants(0);
+            // Move the last element into the place to delete
+            participants_a[0] = participants_a[participants_a.length - 1];
+            // Remove the last element
+            participants_a.pop();
+
             delete participant_m[msg.sender];
             participant_m[msg.sender].isValue = false;
             // Reduce participant count
             participantCount--;
         }
-        setEventStatus(EventStatus.CANCELED);
+        eventStatus = EventStatus.CANCELED;
         return true;
     }
 
@@ -166,7 +167,11 @@ contract Event {
         require(success, "send back event fee transaction failed");
 
         // The participant leaves the event
-        _removeParticipants(index);
+        // Move the last element into the place to delete
+        participants_a[index] = participants_a[participants_a.length - 1];
+        // Remove the last element
+        participants_a.pop();
+
         delete participant_m[msg.sender];
 
         // Reduce participant count
@@ -181,8 +186,44 @@ contract Event {
         require(participantCount >= MIN_PARTICIPANTS, "The minimum number of participants has not been reached");
         require(block.timestamp >= eventDate - CLOSING_TIME_FRAME && block.timestamp <= eventDate, "You can only distribute 24 hours before the event started");
 
-        setEventStatus(EventStatus.DISTRIBUTED);
+        // TODO: distribute also the roles for the participants
+        // ParticipantsRoles { UNDEFINED, HOST, STARTER, MAINDISH, DESSERT }
+        //
+        shuffleArray();
+
+        // Set roles to the participants
+        // First the host will be set
+        participants_a[0].role = ParticipantsRoles.HOST;
+        // Other Roles will be even distributed over the other Roles
+        for(uint i=1; i < participants_a.length; i++) {
+            if (i % 3 == 1) {
+                participants_a[i].role = ParticipantsRoles.STARTER;
+            }
+            if (i % 3 == 2) {
+                participants_a[i].role = ParticipantsRoles.MAINDISH;
+            }
+            if (i % 3 == 0) {
+                participants_a[i].role = ParticipantsRoles.DESSERT;
+            }
+        }
+
+        eventStatus = EventStatus.DISTRIBUTED;
         return true;
+    }
+
+    function shuffleArray() public {
+        // require(participants_a.length > 0, "Array is empty");
+        uint randNonce = 0;
+        uint _randomNumber = uint(keccak256(abi.encodePacked(block.timestamp, msg.sender, randNonce))) % 100;
+        for (uint256 i = 0; i < participants_a.length; i++) {
+            uint256 n = i + (_randomNumber % (participants_a.length - i));
+            if(i != n) {
+                Participant memory temp = participants_a[n];
+                participants_a[n] = participants_a[i];
+                participants_a[i] = temp;
+            }
+        }
+        participants_a = participants_a;
     }
 
     //TODO: convert from ether to eur and via versa
@@ -201,11 +242,30 @@ contract Event {
         return true;
     }
 
-    function showExpenses() public view onlyParticipants returns(Expense[] memory) {
-        require(eventStatus == EventStatus.DISTRIBUTED || eventStatus == EventStatus.ENDED, "Expenses can only be entered for distributed or ended events");
+//    function showExpenses() public view onlyParticipants returns(Expense[] memory) {
+//        require(eventStatus == EventStatus.DISTRIBUTED || eventStatus == EventStatus.ENDED, "Expenses can only be entered for distributed or ended events");
+//        // require(block.timestamp >= eventDate && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME, "You can only enter your expenses after the event started and within the withdraw time");
+//
+//        return expenses_a;
+////        for(uint i=0; i < expenses_a.length; i++) {
+////            if (expenses_a[i].paided) {
+////                Expense expense = new Expense({
+////                    participant: expenses_a[i].participant,
+////                    amount: expenses_a[i].amount,
+////                    confirmed: expenses_a[i].confirmed,
+////                    withdraw: expenses_a[i].withdraw,
+////                });
+////                expenses.push(expense);
+////            }
+////        }
+////        return expenses;
+//    }
+
+    function showParticipants() public view onlyParticipants returns(Participant[] memory) {
+        //require(eventStatus == EventStatus.DISTRIBUTED || eventStatus == EventStatus.ENDED, "Expenses can only be entered for distributed or ended events");
         // require(block.timestamp >= eventDate && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME, "You can only enter your expenses after the event started and within the withdraw time");
 
-        return expenses_a;
+        return participants_a;
 //        for(uint i=0; i < expenses_a.length; i++) {
 //            if (expenses_a[i].paided) {
 //                Expense expense = new Expense({
@@ -316,20 +376,20 @@ contract Event {
     }
 
     /************************  Utility functions  ************************************************/
-
-    function checkExpensesAndConfirmation() view internal onlyParticipants returns(bool) {
-        // When all confirmed and reclaim their expenses or time over
-//        console.log("checkExpensesAndConfirmation");
-        for (uint i = 0; i < expenses_a.length; i++) {
-            if (!expenses_a[i].reclaimed || !expenses_a[i].confirmed) {
-                // When the request is out of withdraw time, then the process should continue, ex. the calc the compensation
-                if(block.timestamp >= eventDate && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
+//
+//    function checkExpensesAndConfirmation() view internal onlyParticipants returns(bool) {
+//        // When all confirmed and reclaim their expenses or time over
+////        console.log("checkExpensesAndConfirmation");
+//        for (uint i = 0; i < expenses_a.length; i++) {
+//            if (!expenses_a[i].reclaimed || !expenses_a[i].confirmed) {
+//                // When the request is out of withdraw time, then the process should continue, ex. the calc the compensation
+//                if(block.timestamp >= eventDate && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME) {
+//                    return false;
+//                }
+//            }
+//        }
+//        return true;
+//    }
 
     function setEventStatusEnded() internal {
         require(eventStatus == EventStatus.DISTRIBUTED || eventStatus == EventStatus.ENDED, "The event has been distributed and is not in finished status.");
@@ -349,15 +409,6 @@ contract Event {
             }
         }
         return false;
-    }
-
-    function getParticipants_m() external view returns (string memory) {
-        uint index = participant_m[msg.sender].index;
-        return participants_a[index].firstname;
-    }
-
-    function getExpenses() external view returns (Expense[] memory) {
-        return expenses_a;
     }
 
     function isConfirmed() external view returns (bool) {
@@ -386,24 +437,8 @@ contract Event {
         return expenses_a[index].event_compensation;
     }
 
-    function getBlockTime() external view returns (uint) {
-        return block.timestamp;
-    }
-
     function getEventClosingTime() external view returns (uint) {
         return (eventDate - CLOSING_TIME_FRAME);
-    }
-
-    function getEventTime() external view returns (uint) {
-        return eventDate;
-    }
-
-    function getEventStatus() public view returns(EventStatus) {
-        return eventStatus;
-    }
-
-    function getEventSeats() public view returns(uint) {
-        return eventSeats;
     }
 
     function setEventStatus(EventStatus _eventStatus) public onlyOwner {
@@ -461,20 +496,13 @@ contract Event {
         require(msg.sender != owner, "As an owner you can't call this function");
         _;
     }
-
-    function _removeParticipants(uint index) private {
-        // Move the last element into the place to delete
-        participants_a[index] = participants_a[participants_a.length - 1];
-        // Remove the last element
-        participants_a.pop();
-    }
-
-    function testMappingStructs() external notOwner onlyParticipants returns(bool) {
-        require(participant_m[msg.sender].isValue, "There is no value for this address");
-        uint index = participant_m[msg.sender].index;
-        participants_a[index].firstname = "Mark";
-        return true;
-    }
+//
+//    function testMappingStructs() external notOwner onlyParticipants returns(bool) {
+//        require(participant_m[msg.sender].isValue, "There is no value for this address");
+//        uint index = participant_m[msg.sender].index;
+//        participants_a[index].firstname = "Mark";
+//        return true;
+//    }
 
 
 }

@@ -60,6 +60,13 @@ const PARTICIPANTS_ARRAY = [
         email: "raymann@reher.hostingkunde.de",
         phone: "+49 178 1231252366",
         seats: 6,
+    },
+    {   // 5
+        firstname: "Emma",
+        lastname: "Hustel",
+        email: "hustel@reher.hostingkunde.de",
+        phone: "+49 178 1231252377",
+        seats: 6,
     }
 ];
 
@@ -160,7 +167,7 @@ describe('Event', function () {
 
             await expect(
                 letOneParticipantJoinsTheEvent(event2, MARION, user3)
-            ).to.be.revertedWith("this event is closed");
+            ).to.be.revertedWith("This event is closed");
         });
     });
 
@@ -185,7 +192,7 @@ describe('Event', function () {
             const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
 
             await letOneParticipantJoinsTheEvent(event, MARTIN, user3);
-            expect(await event.getEventSeats()).to.equal(BigInt(4));
+            expect(await event.eventSeats()).to.equal(BigInt(4));
             await letOneParticipantJoinsTheEvent(event, MARION, user1);
             await letOneParticipantJoinsTheEvent(event, JOHN, user2);
             await letOneParticipantJoinsTheEvent(event, MARIA, user5);
@@ -215,7 +222,7 @@ describe('Event', function () {
             ).to.be.revertedWith("The minimum seats are four");
 
             await letOneParticipantJoinsTheEvent(event, MARTIN, user4);
-            expect(await event.getEventSeats()).to.equal(BigInt(4));
+            expect(await event.eventSeats()).to.equal(BigInt(4));
         });
 
         it('should prevent to enter the event without the incorrect event fee', async function () {
@@ -291,7 +298,7 @@ describe('Event', function () {
     describe('Distributing event tests',  () => {
         it('should revert with message: The minimum number of participants has not been reached', async function () {
             let {event, owner, user1, user2, user3, user4} = await loadFixture(deployContractAndSetVariables);
-            expect(await event.getEventStatus()).to.equal(BigInt(0));
+            expect(await event.eventStatus()).to.equal(BigInt(0));
             // Let 3 participants take part in the event
             await letParticipantsJoinsTheEvent(event, 3);
             expect(await event.participantCount()).to.equal(BigInt("3"));
@@ -356,13 +363,15 @@ describe('Event', function () {
             let {event, owner, user1, user2, user3, user4} = await loadFixture(deployContractAndSetVariables);
 
             // Let 4 participants take part in the event
-            await letParticipantsJoinsTheEvent(event, 4);
+            await letParticipantsJoinsTheEvent(event, 6);
 
             // Distribute the event
             await time.increaseTo((await event.getEventClosingTime()));
             await event.distributeEvent();
 
-            expect(await event.getEventStatus()).to.equal(BigInt(1));
+            // TODO: write tests to check the roles
+            // console.log("after showParticipants::: " + await event.showParticipants());
+            expect(await event.eventStatus()).to.equal(BigInt(1));
         });
 
         it('should revert with message: You can only distribute 24 hours before the event started - at eventTime', async function () {
@@ -372,7 +381,7 @@ describe('Event', function () {
             await letParticipantsJoinsTheEvent(event, 4);
 
             // It is not allow to distribute at the event time
-            await time.increaseTo((await event.getEventTime()));
+            await time.increaseTo((await event.eventDate()));
             await expect(
                 event.distributeEvent()
             ).to.be.revertedWith("You can only distribute 24 hours before the event started")
@@ -400,7 +409,7 @@ describe('Event', function () {
             /*//                                                                                        //*/
             /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-            await time.increaseTo((await event.getEventTime()));
+            await time.increaseTo((await event.eventDate()));
 
             let [user1ExpensesDefault, user1ReclaimedDefault] = await event.connect(user1).getUserExpenses();
             expect(user1ExpensesDefault).to.equal(0);
@@ -430,7 +439,7 @@ describe('Event', function () {
             /*//                                                                                        //*/
             /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-            await time.increaseTo((await event.getEventTime()) - BigInt(50));
+            await time.increaseTo((await event.eventDate()) - BigInt(50));
             await expect(
                 event.connect(user1).reclaimExpenses(parseEther("0.0019"))
             ).to.be.revertedWith("You can only enter your expenses after the event started and within the withdraw time");
@@ -443,7 +452,7 @@ describe('Event', function () {
             /*//                                                                                        //*/
             /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-            await time.increaseTo((await event.getEventTime()) + BigInt(WITHDRAW_TIME_FRAME));
+            await time.increaseTo((await event.eventDate()) + BigInt(WITHDRAW_TIME_FRAME));
             await expect(
                 event.connect(user1).reclaimExpenses(parseEther("0.0019"))
             ).to.be.revertedWith("You can only enter your expenses after the event started and within the withdraw time");
@@ -456,7 +465,7 @@ describe('Event', function () {
             /*//                                                                                        //*/
             /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-            await time.increaseTo((await event.getEventTime()));
+            await time.increaseTo((await event.eventDate()));
 
             // Test to reclaim expenses
             await event.connect(owner).reclaimExpenses(parseEther("0.0034"));
@@ -487,7 +496,7 @@ describe('Event', function () {
 
             await snapshot.restore();
 
-            await time.increaseTo((await event.getEventTime()));
+            await time.increaseTo((await event.eventDate()));
 
             // test to reclaim expenses
             await event.connect(owner).reclaimExpenses(parseEther("0.0036"));
@@ -510,8 +519,7 @@ describe('Event', function () {
         await time.increaseTo((await event.getEventClosingTime()));
         await event.distributeEvent();
 
-        expect(await event.getEventStatus()).to.equal(BigInt(1));
-        // Check if the paided value is send correctly after entering the expenses
+        expect(await event.eventStatus()).to.equal(BigInt(1));
 
         // take a snapshot of the current state of the blockchain
         const snapshot = await takeSnapshot();
@@ -522,12 +530,12 @@ describe('Event', function () {
         /*//                                                                                        //*/
         /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-        await time.increaseTo((await event.getEventTime()) - BigInt(50));
+        await time.increaseTo((await event.eventDate()) - BigInt(50));
         await expect(
             event.connect(user1).reclaimExpenses(parseEther("0.0034"))
         ).to.be.revertedWith("You can only enter your expenses after the event started and within the withdraw time");
 
-        await time.increaseTo((await event.getEventTime()) + BigInt(WITHDRAW_TIME_FRAME) + BigInt(50));
+        await time.increaseTo((await event.eventDate()) + BigInt(WITHDRAW_TIME_FRAME) + BigInt(50));
         await expect(
             event.connect(user1).reclaimExpenses(parseEther("0.0034"))
         ).to.be.revertedWith("You can only enter your expenses after the event started and within the withdraw time");
@@ -540,7 +548,7 @@ describe('Event', function () {
         /*//                                                                                        //*/
         /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-        await time.increaseTo((await event.getEventTime()));
+        await time.increaseTo((await event.eventDate()));
 
         // enter reclaim expenses
         await event.connect(owner).reclaimExpenses(parseEther("0.0034"));
@@ -578,20 +586,20 @@ describe('Event', function () {
         await time.increaseTo((await event.getEventClosingTime()));
         await event.distributeEvent();
 
-        await time.increaseTo((await event.getEventTime()));
+        await time.increaseTo((await event.eventDate()));
         await event.connect(owner).reclaimExpenses(parseEther("0"));
         await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
         await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
         await event.connect(user3).reclaimExpenses(parseEther("0"));
 
-        await time.increaseTo((await event.getEventTime() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
+        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
 
         await event.connect(user2).confirmParticipation(owner.address);
         await event.connect(user3).confirmParticipation(user1.address);
         await event.connect(owner).confirmParticipation(user2.address);
         await event.connect(user1).confirmParticipation(user3.address);
 
-        await time.increaseTo((await event.getEventTime() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
 
         // console.log("before 1. withdraw");
 
@@ -637,14 +645,14 @@ describe('Event', function () {
         await time.increaseTo((await event.getEventClosingTime()));
         await event.distributeEvent();
 
-        await time.increaseTo((await event.getEventTime()));
+        await time.increaseTo((await event.eventDate()));
         await event.connect(owner).reclaimExpenses(parseEther("0"));
         await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
         await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
         await event.connect(user3).reclaimExpenses(parseEther("0"));
         // User 4 will NOT reclaim
 
-        await time.increaseTo((await event.getEventTime() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
 
         await event.connect(user1).confirmParticipation(owner.address);
         await event.connect(user2).confirmParticipation(user1.address);
@@ -652,7 +660,7 @@ describe('Event', function () {
         await event.connect(owner).confirmParticipation(user3.address);
         // User 4 will NOT confirmed
 
-        await time.increaseTo((await event.getEventTime() + BigInt(WITHDRAW_TIME_FRAME) - BigInt(30)));
+        await time.increaseTo((await event.eventDate() + BigInt(WITHDRAW_TIME_FRAME) - BigInt(30)));
 
         // 2. withdraw
         await event.connect(owner).withdraw();
@@ -695,7 +703,7 @@ describe('Event', function () {
             event.connect(user2).withdraw()
         ).to.be.revertedWith("You can only withdraw your ether when the event has ended and within the withdraw time frame");
 
-        await time.increaseTo((await event.getEventTime()));
+        await time.increaseTo((await event.eventDate()));
 
         // Check if the withdraw function only works in the right event time frame
         await expect(
@@ -708,14 +716,14 @@ describe('Event', function () {
         await event.connect(user3).reclaimExpenses(parseEther("0"));
         // User 4 will NOT reclaim
 
-        await time.increaseTo((await event.getEventTime() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
+        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
 
         // Check if the withdraw function only works in the right event time frame
         await expect(
             event.connect(user2).withdraw()
         ).to.be.revertedWith("You can only withdraw your ether when the event has ended and within the withdraw time frame");
 
-        await time.increaseTo((await event.getEventTime() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
 
         // Check if the withdraw function only works in the right event time frame
         await expect(
@@ -728,7 +736,7 @@ describe('Event', function () {
         // User 4 will NOT confirmed
         // User 5 will NOT confirmed
 
-        await time.increaseTo((await event.getEventTime() + BigInt(WITHDRAW_TIME_FRAME) - BigInt(30)));
+        await time.increaseTo((await event.eventDate() + BigInt(WITHDRAW_TIME_FRAME) - BigInt(30)));
 
         // 3. withdraw
         // console.log("3. withdraw");
@@ -760,7 +768,7 @@ describe('Event', function () {
         await event.distributeEvent();
 
         // Reclaim Expenses
-        await time.increaseTo((await event.getEventTime()));
+        await time.increaseTo((await event.eventDate()));
 
         await event.connect(owner).reclaimExpenses(parseEther("0"));
         await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
@@ -773,9 +781,9 @@ describe('Event', function () {
         await event.connect(owner).confirmParticipation(user3.address);
 
         // Check Ended Event Status
-        await time.increaseTo((await event.getEventTime() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
         // Check Distributed Event Status
-        expect(await event.getEventStatus()).to.equal(BigInt(1));
+        expect(await event.eventStatus()).to.equal(BigInt(1));
 
         // 4. withdraw
         // console.log("4. withdraw");
@@ -785,7 +793,7 @@ describe('Event', function () {
         await event.connect(user3).withdraw();
 
         // Check Ended Event Status
-        expect(await event.getEventStatus()).to.equal(BigInt(2));
+        expect(await event.eventStatus()).to.equal(BigInt(2));
 
         // TODO: check function checkExpensesAndConfirmation
         // TODO: check function calcEventCompensation
@@ -812,7 +820,7 @@ describe('Event', function () {
 
         // console.log("getExpenses: ", await event.connect(user1).showExpenses());
 
-    });
+        });
     });
 
     describe('Handling event comfirmation tests', function () {
@@ -835,7 +843,7 @@ describe('Event', function () {
                 event.connect(user3).confirmParticipation(user2.address)
             ).to.be.revertedWith("You can only confirm others after the event started and within the withdraw time");
 
-            await time.increaseTo((await event.getEventTime()));
+            await time.increaseTo((await event.eventDate()));
 
             // You can't confirm yourself
             await expect(
@@ -883,7 +891,7 @@ describe('Event', function () {
             // Check Distributed status
             // TODO: replace numbers with constants
             event.connect(owner).setEventStatus(1);
-            await time.increaseTo((await event.getEventTime()));
+            await time.increaseTo((await event.eventDate()));
             await expect(
                 event.connect(user2).confirmParticipation(user2.address)
             ).to.be.revertedWith("Another user has to confirm you!");
@@ -937,7 +945,6 @@ describe('Event', function () {
             expect(await event.participantCount()).to.equal(BigInt("0"));
             await letOneParticipantJoinsTheEvent(event, MARION, user1);
             expect(await event.participantCount()).to.equal(BigInt("1"));
-            // console.log("getParticipants Mapping: ", await event.connect(user1).getParticipants_m());
 
             // Cancel from a user who hasn't joined the event
             await expect(event.connect(user2).cancelParticipant()).to.be.revertedWith("Only participants can use this function");
@@ -946,7 +953,6 @@ describe('Event', function () {
             await event.connect(user1).cancelParticipant();
             // await expect(await event.connect(user1).cancelEvent()).to.be.equal(true);
             // console.log("getParticipants 2: ", await event.getParticipants());
-            // console.log("getParticipants Mapping: ", await event.connect(user1).getParticipants_m());
             await expect(await event.participantCount()).to.equal(BigInt("0"));
 
             // The owner can not cancel the event
