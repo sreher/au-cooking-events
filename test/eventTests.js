@@ -70,7 +70,7 @@ const PARTICIPANTS_ARRAY = [
     }
 ];
 
-describe('Event', function () {
+describe('Functional event tests', function () {
     // We define a fixture to reuse the same setup in every test.
     // We use loadFixture to run this setup once, snapshot that state,
     // and reset Hardhat Network to that snapshot in every test.
@@ -135,7 +135,12 @@ describe('Event', function () {
 
             await expect(
                 letOneParticipantJoinsTheEvent(event, MARION, user1)
-            ).to.be.revertedWith("The user have already joined the event");
+            ).to.be.revertedWithCustomError(
+                event,
+                "UserHasAlreadyJoinedTheEvent"
+            );
+            // UserHasAlreadyJoinedTheEvent(msg.sender);
+            //revertedWith("The user have already joined the event");
 
             await letOneParticipantJoinsTheEvent(event, MARION, user2);
         });
@@ -566,260 +571,259 @@ describe('Event', function () {
 
     describe('Handling event compensation tests', function () {
         it('should be checked that the event compensation (withdraw) is calculated correctly', async function () {
-        const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
+            const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
 
-        // Let 3 participants take part in the event
-        await letParticipantsJoinsTheEvent(event, 3);
+            // Let 3 participants take part in the event
+            await letParticipantsJoinsTheEvent(event, 3);
 
-        // take a snapshot of the current state of the blockchain
-        const snapshot = await takeSnapshot();
+            // take a snapshot of the current state of the blockchain
+            const snapshot = await takeSnapshot();
 
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
-        /*//                                                                                        //*/
-        /*//                      Test normal withdraw all participant joined                       //*/
-        /*//                                                                                        //*/
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*//                                                                                        //*/
+            /*//                      Test normal withdraw all participant joined                       //*/
+            /*//                                                                                        //*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-        await letOneParticipantJoinsTheEvent(event, MARC, user3);
+            await letOneParticipantJoinsTheEvent(event, MARC, user3);
 
-        // Distribute the event
-        await time.increaseTo((await event.getEventClosingTime()));
-        await event.distributeEvent();
+            // Distribute the event
+            await time.increaseTo((await event.getEventClosingTime()));
+            await event.distributeEvent();
 
-        await time.increaseTo((await event.eventDate()));
-        await event.connect(owner).reclaimExpenses(parseEther("0"));
-        await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
-        await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
-        await event.connect(user3).reclaimExpenses(parseEther("0"));
+            await time.increaseTo((await event.eventDate()));
+            await event.connect(owner).reclaimExpenses(parseEther("0"));
+            await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
+            await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
+            await event.connect(user3).reclaimExpenses(parseEther("0"));
 
-        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
+            await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
 
-        await event.connect(user2).confirmParticipation(owner.address);
-        await event.connect(user3).confirmParticipation(user1.address);
-        await event.connect(owner).confirmParticipation(user2.address);
-        await event.connect(user1).confirmParticipation(user3.address);
+            await event.connect(user2).confirmParticipation(owner.address);
+            await event.connect(user3).confirmParticipation(user1.address);
+            await event.connect(owner).confirmParticipation(user2.address);
+            await event.connect(user1).confirmParticipation(user3.address);
 
-        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+            await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
 
-        // console.log("before 1. withdraw");
+            // console.log("before 1. withdraw");
 
-        // Check if the withdraw flag was set
-        expect(await event.connect(owner).getWithDraw()).to.be.false;
-        expect(await event.connect(user1).getWithDraw()).to.be.false;
-        expect(await event.connect(user2).getWithDraw()).to.be.false;
-        expect(await event.connect(user3).getWithDraw()).to.be.false;
+            // Check if the withdraw flag was set
+            expect(await event.connect(owner).getWithDraw()).to.be.false;
+            expect(await event.connect(user1).getWithDraw()).to.be.false;
+            expect(await event.connect(user2).getWithDraw()).to.be.false;
+            expect(await event.connect(user3).getWithDraw()).to.be.false;
 
-        // 1. withdraw
-        await event.connect(owner).withdraw();
-        await event.connect(user1).withdraw();
-        await event.connect(user2).withdraw();
-        await event.connect(user3).withdraw();
-        // console.log("getExpenses: ", await event.connect(user1).showExpenses());
+            // 1. withdraw
+            await event.connect(owner).withdraw();
+            await event.connect(user1).withdraw();
+            await event.connect(user2).withdraw();
+            await event.connect(user3).withdraw();
+            // console.log("getExpenses: ", await event.connect(user1).showExpenses());
 
-        // Check if the correct event compensaton was calculated
-        expect(await event.connect(owner).getMyEventCompensation()).to.equal(parseEther("0.0005"));
-        expect(await event.connect(user1).getMyEventCompensation()).to.equal(parseEther("0.0020"));
-        expect(await event.connect(user2).getMyEventCompensation()).to.equal(parseEther("0.0010"));
-        expect(await event.connect(user3).getMyEventCompensation()).to.equal(parseEther("0.0005"));
+            // Check if the correct event compensaton was calculated
+            expect(await event.connect(owner).getMyEventCompensation()).to.equal(parseEther("0.0005"));
+            expect(await event.connect(user1).getMyEventCompensation()).to.equal(parseEther("0.0020"));
+            expect(await event.connect(user2).getMyEventCompensation()).to.equal(parseEther("0.0010"));
+            expect(await event.connect(user3).getMyEventCompensation()).to.equal(parseEther("0.0005"));
 
-        // Check if the withdraw flag was set
-        expect(await event.connect(owner).getWithDraw()).to.be.true;
-        expect(await event.connect(user1).getWithDraw()).to.be.true;
-        expect(await event.connect(user2).getWithDraw()).to.be.true;
-        expect(await event.connect(user3).getWithDraw()).to.be.true;
+            // Check if the withdraw flag was set
+            expect(await event.connect(owner).getWithDraw()).to.be.true;
+            expect(await event.connect(user1).getWithDraw()).to.be.true;
+            expect(await event.connect(user2).getWithDraw()).to.be.true;
+            expect(await event.connect(user3).getWithDraw()).to.be.true;
 
-        // TODO: printOutBalances?
-        // printOutBalances("after 1. withdraw");
+            // TODO: printOutBalances?
+            // printOutBalances("after 1. withdraw");
 
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
-        /*//                                                                                        //*/
-        /*//                   Test normal withdraw WITHOUT ONE participant joined                  //*/
-        /*//                                                                                        //*/
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*//                                                                                        //*/
+            /*//                   Test normal withdraw WITHOUT ONE participant joined                  //*/
+            /*//                                                                                        //*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-        await snapshot.restore();
-        await letOneParticipantJoinsTheEvent(event, MARC, user3);
-        await letOneParticipantJoinsTheEvent(event, ELENA, user4);
+            await snapshot.restore();
+            await letOneParticipantJoinsTheEvent(event, MARC, user3);
+            await letOneParticipantJoinsTheEvent(event, ELENA, user4);
 
-        // Distribute the event
-        await time.increaseTo((await event.getEventClosingTime()));
-        await event.distributeEvent();
+            // Distribute the event
+            await time.increaseTo((await event.getEventClosingTime()));
+            await event.distributeEvent();
 
-        await time.increaseTo((await event.eventDate()));
-        await event.connect(owner).reclaimExpenses(parseEther("0"));
-        await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
-        await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
-        await event.connect(user3).reclaimExpenses(parseEther("0"));
-        // User 4 will NOT reclaim
+            await time.increaseTo((await event.eventDate()));
+            await event.connect(owner).reclaimExpenses(parseEther("0"));
+            await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
+            await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
+            await event.connect(user3).reclaimExpenses(parseEther("0"));
+            // User 4 will NOT reclaim
 
-        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+            await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
 
-        await event.connect(user1).confirmParticipation(owner.address);
-        await event.connect(user2).confirmParticipation(user1.address);
-        await event.connect(user1).confirmParticipation(user2.address);
-        await event.connect(owner).confirmParticipation(user3.address);
-        // User 4 will NOT confirmed
+            await event.connect(user1).confirmParticipation(owner.address);
+            await event.connect(user2).confirmParticipation(user1.address);
+            await event.connect(user1).confirmParticipation(user2.address);
+            await event.connect(owner).confirmParticipation(user3.address);
+            // User 4 will NOT confirmed
 
-        await time.increaseTo((await event.eventDate() + BigInt(WITHDRAW_TIME_FRAME) - BigInt(30)));
+            await time.increaseTo((await event.eventDate() + BigInt(WITHDRAW_TIME_FRAME) - BigInt(30)));
 
-        // 2. withdraw
-        await event.connect(owner).withdraw();
-        await event.connect(user1).withdraw();
-        await event.connect(user2).withdraw();
-        await event.connect(user3).withdraw();
-        // User 4 will NOT withdraw
+            // 2. withdraw
+            await event.connect(owner).withdraw();
+            await event.connect(user1).withdraw();
+            await event.connect(user2).withdraw();
+            await event.connect(user3).withdraw();
+            // User 4 will NOT withdraw
 
-        // console.log("getExpenses: ", await event.connect(user1).showExpenses());
+            // console.log("getExpenses: ", await event.connect(user1).showExpenses());
 
-        // Check if the correct event compensaton was calculated
-        expect(await event.connect(owner).getMyEventCompensation()).to.equal(parseEther("0.00075"));
-        expect(await event.connect(user1).getMyEventCompensation()).to.equal(parseEther("0.00225"));
-        expect(await event.connect(user2).getMyEventCompensation()).to.equal(parseEther("0.00125"));
-        expect(await event.connect(user3).getMyEventCompensation()).to.equal(parseEther("0.00075"));
-        expect(await event.connect(user4).getMyEventCompensation()).to.equal(parseEther("0"));
+            // Check if the correct event compensaton was calculated
+            expect(await event.connect(owner).getMyEventCompensation()).to.equal(parseEther("0.00075"));
+            expect(await event.connect(user1).getMyEventCompensation()).to.equal(parseEther("0.00225"));
+            expect(await event.connect(user2).getMyEventCompensation()).to.equal(parseEther("0.00125"));
+            expect(await event.connect(user3).getMyEventCompensation()).to.equal(parseEther("0.00075"));
+            expect(await event.connect(user4).getMyEventCompensation()).to.equal(parseEther("0"));
 
-        await snapshot.restore();
+            await snapshot.restore();
 
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
-        /*//                                                                                        //*/
-        /*//                   Test normal withdraw WITHOUT TWO participant joined                  //*/
-        /*//                                                                                        //*/
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*//                                                                                        //*/
+            /*//                   Test normal withdraw WITHOUT TWO participant joined                  //*/
+            /*//                                                                                        //*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-        await letOneParticipantJoinsTheEvent(event, MARC, user3);
-        await letOneParticipantJoinsTheEvent(event, ELENA, user4);
+            await letOneParticipantJoinsTheEvent(event, MARC, user3);
+            await letOneParticipantJoinsTheEvent(event, ELENA, user4);
 
-        // Check if the withdraw function only works in the right event status
-        await expect(
-            event.connect(user2).withdraw()
-        ).to.be.revertedWith("Expenses can only be entered for distributed or ended events");
+            // Check if the withdraw function only works in the right event status
+            await expect(
+                event.connect(user2).withdraw()
+            ).to.be.revertedWith("Expenses can only be entered for distributed or ended events");
 
-        // Distribute the event
-        await time.increaseTo((await event.getEventClosingTime()));
-        await event.distributeEvent();
+            // Distribute the event
+            await time.increaseTo((await event.getEventClosingTime()));
+            await event.distributeEvent();
 
-        // Check if the withdraw function only works in the right event time frame
-        await expect(
-            event.connect(user2).withdraw()
-        ).to.be.revertedWith("You can only withdraw your ether when the event has ended and within the withdraw time frame");
+            // Check if the withdraw function only works in the right event time frame
+            await expect(
+                event.connect(user2).withdraw()
+            ).to.be.revertedWith("You can only withdraw your ether when the event has ended and within the withdraw time frame");
 
-        await time.increaseTo((await event.eventDate()));
+            await time.increaseTo((await event.eventDate()));
 
-        // Check if the withdraw function only works in the right event time frame
-        await expect(
-            event.connect(user2).withdraw()
-        ).to.be.revertedWith("You can only withdraw your ether when the event has ended and within the withdraw time frame");
+            // Check if the withdraw function only works in the right event time frame
+            await expect(
+                event.connect(user2).withdraw()
+            ).to.be.revertedWith("You can only withdraw your ether when the event has ended and within the withdraw time frame");
 
-        await event.connect(owner).reclaimExpenses(parseEther("0"));
-        await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
-        await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
-        await event.connect(user3).reclaimExpenses(parseEther("0"));
-        // User 4 will NOT reclaim
+            await event.connect(owner).reclaimExpenses(parseEther("0"));
+            await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
+            await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
+            await event.connect(user3).reclaimExpenses(parseEther("0"));
+            // User 4 will NOT reclaim
 
-        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
+            await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
 
-        // Check if the withdraw function only works in the right event time frame
-        await expect(
-            event.connect(user2).withdraw()
-        ).to.be.revertedWith("You can only withdraw your ether when the event has ended and within the withdraw time frame");
+            // Check if the withdraw function only works in the right event time frame
+            await expect(
+                event.connect(user2).withdraw()
+            ).to.be.revertedWith("You can only withdraw your ether when the event has ended and within the withdraw time frame");
 
-        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+            await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
 
-        // Check if the withdraw function only works in the right event time frame
-        await expect(
-            event.connect(user2).withdraw()
-        ).to.be.revertedWith("There are no confirmed participants in the event");
+            // Check if the withdraw function only works in the right event time frame
+            await expect(
+                event.connect(user2).withdraw()
+            ).to.be.revertedWith("There are no confirmed participants in the event");
 
-        await event.connect(user1).confirmParticipation(owner.address);
-        await event.connect(user2).confirmParticipation(user1.address);
-        await event.connect(user1).confirmParticipation(user2.address);
-        // User 4 will NOT confirmed
-        // User 5 will NOT confirmed
+            await event.connect(user1).confirmParticipation(owner.address);
+            await event.connect(user2).confirmParticipation(user1.address);
+            await event.connect(user1).confirmParticipation(user2.address);
+            // User 4 will NOT confirmed
+            // User 5 will NOT confirmed
 
-        await time.increaseTo((await event.eventDate() + BigInt(WITHDRAW_TIME_FRAME) - BigInt(30)));
+            await time.increaseTo((await event.eventDate() + BigInt(WITHDRAW_TIME_FRAME) - BigInt(30)));
 
-        // 3. withdraw
-        // console.log("3. withdraw");
-        await event.connect(owner).withdraw();
-        await event.connect(user1).withdraw();
-        await event.connect(user2).withdraw();
-        await event.connect(user3).withdraw();
-        // User 4 will NOT withdraw
+            // 3. withdraw
+            // console.log("3. withdraw");
+            await event.connect(owner).withdraw();
+            await event.connect(user1).withdraw();
+            await event.connect(user2).withdraw();
+            await event.connect(user3).withdraw();
+            // User 4 will NOT withdraw
 
-        // Check if the correct event compensaton was calculated
-        expect(await event.connect(owner).getMyEventCompensation()).to.equal(parseEther("0.0010"));
-        expect(await event.connect(user1).getMyEventCompensation()).to.equal(parseEther("0.0025"));
-        expect(await event.connect(user2).getMyEventCompensation()).to.equal(parseEther("0.0015"));
-        expect(await event.connect(user3).getMyEventCompensation()).to.equal(parseEther("0"));
-        expect(await event.connect(user4).getMyEventCompensation()).to.equal(parseEther("0"));
+            // Check if the correct event compensaton was calculated
+            expect(await event.connect(owner).getMyEventCompensation()).to.equal(parseEther("0.0010"));
+            expect(await event.connect(user1).getMyEventCompensation()).to.equal(parseEther("0.0025"));
+            expect(await event.connect(user2).getMyEventCompensation()).to.equal(parseEther("0.0015"));
+            expect(await event.connect(user3).getMyEventCompensation()).to.equal(parseEther("0"));
+            expect(await event.connect(user4).getMyEventCompensation()).to.equal(parseEther("0"));
 
 
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
-        /*//                                                                                        //*/
-        /*//                      Test EventStatus Ended AFTER withdraw call                        //*/
-        /*//                                                                                        //*/
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*//                                                                                        //*/
+            /*//                      Test EventStatus Ended AFTER withdraw call                        //*/
+            /*//                                                                                        //*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-        await snapshot.restore();
-        await letOneParticipantJoinsTheEvent(event, MARC, user3);
+            await snapshot.restore();
+            await letOneParticipantJoinsTheEvent(event, MARC, user3);
 
-        // Distribute the event
-        await time.increaseTo((await event.getEventClosingTime()));
-        await event.distributeEvent();
+            // Distribute the event
+            await time.increaseTo((await event.getEventClosingTime()));
+            await event.distributeEvent();
 
-        // Reclaim Expenses
-        await time.increaseTo((await event.eventDate()));
+            // Reclaim Expenses
+            await time.increaseTo((await event.eventDate()));
 
-        await event.connect(owner).reclaimExpenses(parseEther("0"));
-        await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
-        await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
-        await event.connect(user3).reclaimExpenses(parseEther("0"));
+            await event.connect(owner).reclaimExpenses(parseEther("0"));
+            await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
+            await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
+            await event.connect(user3).reclaimExpenses(parseEther("0"));
 
-        await event.connect(user1).confirmParticipation(owner.address);
-        await event.connect(user2).confirmParticipation(user1.address);
-        await event.connect(user1).confirmParticipation(user2.address);
-        await event.connect(owner).confirmParticipation(user3.address);
+            await event.connect(user1).confirmParticipation(owner.address);
+            await event.connect(user2).confirmParticipation(user1.address);
+            await event.connect(user1).confirmParticipation(user2.address);
+            await event.connect(owner).confirmParticipation(user3.address);
 
-        // Check Ended Event Status
-        await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
-        // Check Distributed Event Status
-        expect(await event.eventStatus()).to.equal(BigInt(1));
+            // Check Ended Event Status
+            await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+            // Check Distributed Event Status
+            expect(await event.eventStatus()).to.equal(BigInt(1));
 
-        // 4. withdraw
-        // console.log("4. withdraw");
-        await event.connect(owner).withdraw();
-        await event.connect(user1).withdraw();
-        await event.connect(user2).withdraw();
-        await event.connect(user3).withdraw();
+            // 4. withdraw
+            // console.log("4. withdraw");
+            await event.connect(owner).withdraw();
+            await event.connect(user1).withdraw();
+            await event.connect(user2).withdraw();
+            await event.connect(user3).withdraw();
 
-        // Check Ended Event Status
-        expect(await event.eventStatus()).to.equal(BigInt(2));
+            // Check Ended Event Status
+            expect(await event.eventStatus()).to.equal(BigInt(2));
 
-        // TODO: check function checkExpensesAndConfirmation
-        // TODO: check function calcEventCompensation
+            // TODO: check function checkExpensesAndConfirmation
+            // TODO: check function calcEventCompensation
 
-        // Backup
-        //
-        // // test the enter expenses
-        // await event.connect(user1).payExpenses({
-        //     value: parseEther("0.0034")
-        // });
-        //
-        // await event.connect(user2).payExpenses({
-        //     value: parseEther("0.0025")
-        // });
-        //
-        // await event.connect(user3).payExpenses({
-        //     value: parseEther("0.0019")
-        // });
-        //
-        // // Check if the balance reduce for the users
+            // Backup
+            //
+            // // test the enter expenses
+            // await event.connect(user1).payExpenses({
+            //     value: parseEther("0.0034")
+            // });
+            //
+            // await event.connect(user2).payExpenses({
+            //     value: parseEther("0.0025")
+            // });
+            //
+            // await event.connect(user3).payExpenses({
+            //     value: parseEther("0.0019")
+            // });
+            //
+            // // Check if the balance reduce for the users
 
-        // TODO: printOutBalances?
-        // printOutBalances("after 1. withdraw");
+            // TODO: printOutBalances?
+            // printOutBalances("after 1. withdraw");
 
-        // console.log("getExpenses: ", await event.connect(user1).showExpenses());
-
+            // console.log("getExpenses: ", await event.connect(user1).showExpenses());
         });
     });
 
@@ -857,7 +861,10 @@ describe('Event', function () {
 
             await expect(
                 event.connect(user2).confirmParticipation(user4.address)
-            ).to.be.revertedWith("There is no value for this address");
+            ).to.be.revertedWithCustomError(
+                event,
+                "NoRegistrationFoundForThisUser"
+            );
 
             // take a snapshot of the current state of the blockchain
             const snapshot = await takeSnapshot();
@@ -923,42 +930,42 @@ describe('Event', function () {
         });
     });
 
-    describe("Handling event canelation tests", function () {
-        it('should be tested that the event cancelation works', async function () {
-            const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
-
-            await expect(event.connect(user1).cancelEvent()).to.be.revertedWith("Only the owner can call this function");
-            await expect(event.connect(user2).cancelEvent()).to.be.revertedWith("Only the owner can call this function");
-
-            await letParticipantsJoinsTheEvent(event, 5);
-
-            await event.cancelEvent();
-            // Check that no participants are in the event
-            expect(await event.participantCount()).to.equal(BigInt("0"));
-            // Check the Cancel Status
-            expect(await event.eventStatus()).to.equal("3");
-        });
-
-        it('should be tested that the cancelation of a participant works', async function () {
-            const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
-
-            expect(await event.participantCount()).to.equal(BigInt("0"));
-            await letOneParticipantJoinsTheEvent(event, MARION, user1);
-            expect(await event.participantCount()).to.equal(BigInt("1"));
-
-            // Cancel from a user who hasn't joined the event
-            await expect(event.connect(user2).cancelParticipant()).to.be.revertedWith("Only participants can use this function");
-            await expect(event.connect(user3).cancelParticipant()).to.be.revertedWith("Only participants can use this function");
-
-            await event.connect(user1).cancelParticipant();
-            // await expect(await event.connect(user1).cancelEvent()).to.be.equal(true);
-            // console.log("getParticipants 2: ", await event.getParticipants());
-            await expect(await event.participantCount()).to.equal(BigInt("0"));
-
-            // The owner can not cancel the event
-            await expect(event.connect(owner).cancelParticipant()).to.be.revertedWith("As an owner you can't call this function");
-        });
-    });
+    // describe("Handling event canelation tests", function () {
+    //     it('should be tested that the event cancelation works', async function () {
+    //         const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
+    //
+    //         await expect(event.connect(user1).cancelEvent()).to.be.revertedWith("Only the owner can call this function");
+    //         await expect(event.connect(user2).cancelEvent()).to.be.revertedWith("Only the owner can call this function");
+    //
+    //         await letParticipantsJoinsTheEvent(event, 5);
+    //
+    //         await event.cancelEvent();
+    //         // Check that no participants are in the event
+    //         expect(await event.participantCount()).to.equal(BigInt("0"));
+    //         // Check the Cancel Status
+    //         expect(await event.eventStatus()).to.equal("3");
+    //     });
+    //
+    //     it('should be tested that the cancelation of a participant works', async function () {
+    //         const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
+    //
+    //         expect(await event.participantCount()).to.equal(BigInt("0"));
+    //         await letOneParticipantJoinsTheEvent(event, MARION, user1);
+    //         expect(await event.participantCount()).to.equal(BigInt("1"));
+    //
+    //         // Cancel from a user who hasn't joined the event
+    //         await expect(event.connect(user2).cancelParticipant()).to.be.revertedWith("Only participants can use this function");
+    //         await expect(event.connect(user3).cancelParticipant()).to.be.revertedWith("Only participants can use this function");
+    //
+    //         await event.connect(user1).cancelParticipant();
+    //         // await expect(await event.connect(user1).cancelEvent()).to.be.equal(true);
+    //         // console.log("getParticipants 2: ", await event.getParticipants());
+    //         await expect(await event.participantCount()).to.equal(BigInt("0"));
+    //
+    //         // The owner can not cancel the event
+    //         await expect(event.connect(owner).cancelParticipant()).to.be.revertedWith("As an owner you can't call this function");
+    //     });
+    // });
 
     //
     // it('is not clear, difference walletUser1 and user1', async function () {

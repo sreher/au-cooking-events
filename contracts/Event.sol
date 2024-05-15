@@ -31,8 +31,13 @@ contract Event {
     enum EventStatus { ACTIVE, DISTRIBUTED, ENDED, CANCELED }
     enum ParticipantsRoles { UNDEFINED, HOST, STARTER, MAINDISH, DESSERT }
 
+    //Error
+    // There is no value for this address
+    error NoRegistrationFoundForThisUser(address _addr1);
+    error UserHasAlreadyJoinedTheEvent(address _addr1);
+
     // Structs
-    struct ParticipantDouble{
+    struct ParticipantDouble {
         uint index;
         bool isValue;
     }
@@ -86,9 +91,12 @@ contract Event {
     ) public payable returns(bool) {
         // TODO: change it to error functions
         require(msg.value == eventFee, "The correct eventFee has to be paid");
-        require(!userJoined(msg.sender), "The user have already joined the event");
+        // require(!userJoined(msg.sender), "The user have already joined the event");
         require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
 
+        if (userJoined(msg.sender)) {
+            revert UserHasAlreadyJoinedTheEvent(msg.sender);
+        }
         // TODO: remove this later when the kitchen feature is implemented
         if (participants_a.length > 0) {
             // with the first participant the eventSeats will be set
@@ -122,7 +130,6 @@ contract Event {
             withdraw: false
         });
         expenses_a.push(expense_s);
-//        expenses_m[msg.sender] = expense_s;
 
         // the first participant will be the host
         if (participants_a.length == 1) {
@@ -134,50 +141,67 @@ contract Event {
         return true;
     }
 
-    function cancelEvent() external onlyOwner returns(bool) {
-        require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
-        uint participantsCounter = participants_a.length;
-        for(uint i=0; i < participantsCounter; i++) {
-            uint _event_fee = participants_a[0].event_fee;
-            address participant = participants_a[0].participant;
-            (bool success, ) = participant.call{value: _event_fee}("");
-            require(success, "send back event fee transaction failed");
-            // The participant leaves the event
-            // Move the last element into the place to delete
-            participants_a[0] = participants_a[participants_a.length - 1];
-            // Remove the last element
-            participants_a.pop();
-
-            delete participant_m[msg.sender];
-            participant_m[msg.sender].isValue = false;
-            // Reduce participant count
-            participantCount--;
-        }
-        eventStatus = EventStatus.CANCELED;
-        return true;
-    }
+//    function cancelEvent() external onlyOwner returns(bool) {
+//        require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
+//        uint participantsCounter = participants_a.length;
+//        for(uint i=0; i < participantsCounter; i++) {
+//            // TODO: check if i has to introduce
+//            uint _event_fee = participants_a[0].event_fee;
+//            address participant = participants_a[0].participant;
+//            (bool success, ) = participant.call{value: _event_fee}("");
+//            require(success, "send back event fee transaction failed");
+//            // The participant leaves the event
+//            // Move the last element into the place to delete
+//            participants_a[0] = participants_a[participants_a.length - 1];
+//            // Remove the last element
+//            participants_a.pop();
+//
+//            delete participant_m[msg.sender];
+//            participant_m[msg.sender].isValue = false;
+//            // Reduce participant count
+//            participantCount--;
+//        }
+//        eventStatus = EventStatus.CANCELED;
+//        return true;
+//    }
 
     function cancelParticipant() external notOwner onlyParticipants returns(bool) {
         require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
+        // TODO: The Date/Time of the event is more than 24 hours away OR Event Status == ENDED OR Event Status == DISTRIBUTED
+        // TODO: check before closing time
 
         // Pay back the Event fee
-        uint index = participant_m[msg.sender].index;
-        uint _event_fee = participants_a[index].event_fee;
+        uint removed_index = participant_m[msg.sender].index;
+//        console.log(participants_a[removed_index].firstname);
+//        console.log("removed_index: ", removed_index);
+        uint _event_fee = participants_a[removed_index].event_fee;
         (bool success, ) = msg.sender.call{value: _event_fee}("");
         require(success, "send back event fee transaction failed");
 
         // The participant leaves the event
-        // Move the last element into the place to delete
-        participants_a[index] = participants_a[participants_a.length - 1];
+        // Move the last element into the position of the replaced user and delete the last position
+        Participant memory participant_tobe_swaped = participants_a[participants_a.length - 1];
+        participants_a[removed_index] = participant_tobe_swaped;
+
+        Expense memory expense_tobe_swaped = expenses_a[expenses_a.length - 1];
+        expenses_a[removed_index] = expense_tobe_swaped;
+
+//        console.log(participants_a[removed_index].firstname);
+        // Update the participant mapping with the index from the replaced user
+//        console.log("Davor: ", participant_m[participant_tobe_swaped.participant].index);
+        participant_m[participant_tobe_swaped.participant].index = removed_index;
+//        console.log("Danach: ", participant_m[participant_tobe_swaped.participant].index);
         // Remove the last element
         participants_a.pop();
-
+        expenses_a.pop();
         delete participant_m[msg.sender];
+//        if (participants_a.length > 0) {
+//            console.log(participants_a[participants_a.length - 1].firstname);
+//        }
 
         // Reduce participant count
         participantCount--;
 
-        // TODO: The Date/Time of the event is more than 24 hours away OR Event Status == ENDED OR Event Status == DISTRIBUTED
         return true;
     }
 
@@ -287,10 +311,13 @@ contract Event {
         require(msg.sender != _addr1, "Another user has to confirm you!");
 
         // Set Participation of the participant to CONFIRMED
-        require(participant_m[_addr1].isValue, "There is no value for this address");
-        uint index = participant_m[_addr1].index;
-        expenses_a[index].confirmed = true;
-
+        // console.log(participant_m[_addr1].isValue);
+        if (participant_m[_addr1].isValue) {
+            uint index = participant_m[_addr1].index;
+            expenses_a[index].confirmed = true;
+        } else {
+            revert NoRegistrationFoundForThisUser(_addr1);
+        }
         // TODO: to be tested
         // If the withdraw function will call X hours after the eventDate, then the Event Status will set to Ended
         setEventStatusEnded();
@@ -328,6 +355,8 @@ contract Event {
             if (expenses_a[i].confirmed) {
                 // event_compensation will be only calculated for attending users
                 uint getBack = (participants_a[i].event_fee + expenses_a[i].amount + penalty);
+                // TODO: what if the cost higher than the deposit - spread the costs evenly
+//                console.log("costPerParticipant               ", costPerParticipant);
 //                console.log("getBack               ", getBack);
                 eventCompensation = getBack - costPerParticipant;
 //                console.log("eventCompensation      ", eventCompensation);
@@ -421,6 +450,10 @@ contract Event {
         uint index = participant_m[msg.sender].index;
         return (expenses_a[index].amount, expenses_a[index].reclaimed);
     }
+
+//    function getExpenses() external view returns (Participant[] memory) {
+//        return participants_a;
+//    }
 
     function getWithDraw() external view returns (bool) {
         uint index = participant_m[msg.sender].index;
