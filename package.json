@@ -7,7 +7,8 @@
     "test": "test"
   },
   "scripts": {
-    "test": "hardhat test"
+    "test": "hardhat test",
+    "scenario": "npx hardhat test --grep 'EventScenario'"
   },
   "keywords": [],
   "author": "",

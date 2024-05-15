@@ -1,28 +1,25 @@
 # Cooking Events
 
 ## Short Summary
-A Delivery versus Payment (DVP) contract built for the Ethereum blockchain that facilitates over the counter(OTC) settlements between two parties.
+A Event Management System for Cooking Events built on the Ethereum blockchain that makes it very easy to organise a nice evening together with friends. 
 
-## Szenario
-this project is about handling community cooking events onchain.  
-imagine you will enjoy a cooking event in your town with interesting people. 
-To realise this register to a cooking event, and you only know that there are people invited from a friend of you, who send you a link to this event.   
-you will cook together a three-course menu for an evening and get to know each other  
-before the event has started, you don't see who is participating, you don't see what will be the meal, you don't see where the event will happen  
-But you are curious and register and wait for the event.  
-24 hours before the event starts you can see on the event which role you have and where the event will happen.  
-The roles in an event: 
-There is one host with a kitchen, there the event will happen    
-There are different other roles corresponds to the meals - starter, main dish and dessert
-These roles have to choose a recipe, buy the ingredient and take that to the evening.
-All the participants will meet in the kitchen of the host and start preparing the meals, drinking some wine and have a good time. 
-48 hours after the event starts, the participants can withdraw their event deposit - minus the cost of the event.
-In the end it will be a nice experience for all. 
+## A 3-course barbecue menu near your home
+
+Welcome to the innovative world of onchain community cooking events! Our project aims to revolutionize the way people come together to cook, socialize, and enjoy delicious meals.
+
+Envision yourself into a cooking event in your town, surrounded by intriguing individuals, all ready to embark on a culinary adventure. To join, you simply register for the event through a link shared by a friend. But here's the twist: until the event begins, participants remain in suspense. You won't know who else is attending, what's on the menu, or even where the event will take place. It's an exhilarating mystery that piques your curiosity and anticipation.
+
+Then, 24 hours before the event commences, the veil is lifted. You discover your role for the evening and the location of the event. Roles vary from the gracious host, who opens their kitchen for the gathering, to contributors responsible for crafting delightfully courses such as starters, main dishes, and desserts. Each role involves selecting recipes, supplying ingredients, and bringing them to the event.
+
+As the appointed time arrives, participants converge in the host's kitchen, ready to collaborate, create, and connect. Amidst chopping, frying, and simmering, conversations flow, wine is enjoyed, and bonds are formed. It's not just about cooking; it's about the joy of shared experiences and communal moments.
+
+Following the event, participants can withdraw their event deposit, minus an event compensation. This ensures accountability and transparency, reinforcing trust within the community.
+
+Ultimately, our project promises to deliver unforgettable experiences, where strangers become friends, and meals become memories. Join us as we blend the excitement of onchain technology with the warmth of communal cooking, creating an enriching journey for all involved.
 
 
-## Use Cases
+## Technical use cases of the contract
 * create an event 
-* The owner can cancel the event until it has not started
 * people can register until 24 hours event starts and free seats are available, minimum are 4 seats
 * people deposit money to participate and pay for the ingredience of the meals 
 * people can unregister until 24 hours before the event without losing their event fee 
@@ -35,46 +32,60 @@ In the end it will be a nice experience for all.
 
 ## Gettings started
 
-This project has no frontend yet. The fokus was on the testing part.
+This project has no frontend yet. The fokus was on the testing part. There is a more descriptive test suite with a scenario and the complete test suite with all tests.
 Every aspect of the contract should be tested in different variations to ensure, that the contract is working as expected.
 
 Try running some of the following tasks:
 
 ```shell
 npm install
+npm run scenario
 npm test
 ```
 
-So these are the main test section:
+The command "npm run scenario" runs a descriptive test suite to walk through the complete process:
 
-* Basic event tests  
-  ✔ should deploy and set the owner correctly (679ms)  
-  ✔ should be tested that the title and the description exists and be correct  
-  ✔ test letParticipantsJoinsTheEvent (66ms)  
-  ✔ should be tested, that a user can only entered once (49ms)  
-  ✔ shoud be tested that event status changes correctly  
-  ✔ should be tested that events closed correctly
-* Joining an event  
-  ✔ should be tested that participants can join the events (68ms)  
-  ✔ should be tested that the event seats restrictions works (54ms)  
-  ✔ should be checked that the minimum event seats is right  
-  ✔ should prevent to enter the event without the incorrect event fee
-* Distributing event tests  
-  ✔ should revert with message: The minimum number of participants has not been reached (40ms)  
-  ✔ should revert with message: Only the owner can call this function (44ms)  
-  ✔ should revert with message: Only active events can be distributed (57ms)  
-  ✔ should revert with message: You can only distribute 24 hours before the event started - before eventClosingTime (48ms)  
-  ✔ should revert with message: You can only distribute 24 hours before the event started - at eventClosingTime (48ms)  
-  ✔ should revert with message: You can only distribute 24 hours before the event started - at eventTime (46ms)
-* Reclaiming event tests  
-  ✔ should be checked that the reclaim expenses works (169ms)
-* Handling expenses event tests  
-  ✔ should be checked that the expenses entered correctly (91ms)
-* Handling event compensation tests  
-  ✔ should be checked that the event compensation (withdraw) is calculated correctly (505ms)
-* Handling event comfirmation tests  
-  ✔ should be checked that the participation is correctly confirmed (101ms)  
-  ✔ should be checked that the event status works correctly with the participation confirmation (89ms)
-* Handling event canelation tests  
-  ✔ should be tested that the event cancelation works (80ms)  
-  ✔ should be tested that the cancelation of a participant works  
+```
+EventScenario
+    3-course barbecue menu near the city park
+      ✔ six user register to the event
+      ✔ one user leaves the event
+      ✔ the event will be clossed and distributed
+      ✔ the participants can confirm among each other
+      ✔ the participants enter their expenses for the evening
+      ✔ the event is over. participants can widthdraw their deposit  minus the event compensation
+```
+
+The command "npm test" runs the complete test suite with all test cases.
+
+```
+  Functional event tests
+    Basic event tests
+      ✔ should deploy and set the owner correctly
+      ✔ should be tested that the title and the description exists and be correct
+      ✔ test letParticipantsJoinsTheEvent
+      ✔ should be tested, that a user can only entered once
+      ✔ shoud be tested that event status changes correctly
+      ✔ should be tested that events closed correctly
+    Joining an event
+      ✔ should be tested that participants can join the events
+      ✔ should be tested that the event seats restrictions works
+      ✔ should be checked that the minimum event seats is right
+      ✔ should prevent to enter the event without the incorrect event fee
+    Distributing event tests
+      ✔ should revert with message: The minimum number of participants has not been reached
+      ✔ should revert with message: Only the owner can call this function
+      ✔ should revert with message: Only active events can be distributed
+      ✔ should revert with message: You can only distribute 24 hours before the event started - before eventClosingTime
+      ✔ should revert with message: You can only distribute 24 hours before the event started - at eventClosingTime
+      ✔ should revert with message: You can only distribute 24 hours before the event started - at eventTime
+    Reclaiming event tests
+      ✔ should be checked that the reclaim expenses works
+    Handling expenses event tests
+      ✔ should be checked that the expenses entered correctly
+    Handling event compensation tests
+      ✔ should be checked that the event compensation (withdraw) is calculated correctly
+    Handling event comfirmation tests
+      ✔ should be checked that the participation is correctly confirmed
+      ✔ should be checked that the event status works correctly with the participation confirmation
+```
