@@ -6,7 +6,7 @@ const {JsonRpcProvider, Wallet, parseEther, formatUnits} = require("ethers");
 const MIN_PARTICIPANTS = 4;
 const HOUR_IN_SECONDS = 3600;
 const DAY_IN_SECONDS = 86400;
-const EVENT_FEE = parseEther("0.0010");
+const EVENT_DEPOSIT = parseEther("0.0010");
 const ENDED_TIME_FRAME = 5 * HOUR_IN_SECONDS;
 const CLOSING_TIME_FRAME = 24 * HOUR_IN_SECONDS;
 const WITHDRAW_TIME_FRAME = 48 * HOUR_IN_SECONDS;
@@ -76,12 +76,12 @@ describe('Functional event tests', function () {
     // and reset Hardhat Network to that snapshot in every test.
     async function deployContractAndSetVariables() {
         const Event = await ethers.getContractFactory('Event');
-        // Next Event
+
         const event = await Event.deploy(
             "First Cooking Event",
             "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed.",
             (await time.latest()) + (14 * DAY_IN_SECONDS),
-            EVENT_FEE
+            EVENT_DEPOSIT
         );
 
         // Next Event
@@ -89,20 +89,15 @@ describe('Functional event tests', function () {
             "Second Cooking Event",
             "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed.",
             (await time.latest()) + (5 * DAY_IN_SECONDS),
-            EVENT_FEE
+            EVENT_DEPOSIT
         );
 
         const [owner, user1, user2, user3, user4, user5] = await ethers.getSigners();
-
-        // console.log('Signer 1 address: ', owner.address);
-        // console.log('Event contract address: ', await event.getAddress());
-        // console.log('Event contract address: ', await event2.getAddress());
         return {event, event2, owner, user1, user2, user3, user4, user5};
     }
 
 
     describe('Basic event tests', function () {
-        // "I want it to x.", "I want it to y."
         it('should deploy and set the owner correctly', async function () {
             const {event, owner} = await loadFixture(deployContractAndSetVariables);
 
@@ -116,7 +111,6 @@ describe('Functional event tests', function () {
             expect(await event.description()).to.equal("Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed.");
 
             // Checking the Event Status
-            // TODO: How can we reuse the enum from the contract?
             const active = BigInt("0"); // Active
             let eventStatusFromContract = await event.eventStatus();
             expect(eventStatusFromContract).to.equal(active);
@@ -132,20 +126,16 @@ describe('Functional event tests', function () {
             const {event, user1, user2, user3} = await loadFixture(deployContractAndSetVariables);
 
             await letOneParticipantJoinsTheEvent(event, JOHN, user1);
-
             await expect(
                 letOneParticipantJoinsTheEvent(event, MARION, user1)
             ).to.be.revertedWithCustomError(
                 event,
                 "UserHasAlreadyJoinedTheEvent"
             );
-            // UserHasAlreadyJoinedTheEvent(msg.sender);
-            //revertedWith("The user have already joined the event");
-
             await letOneParticipantJoinsTheEvent(event, MARION, user2);
         });
 
-        it('shoud be tested that event status changes correctly', async function () {
+        it('should be tested that event status changes correctly', async function () {
             const {event, user2} = await loadFixture(deployContractAndSetVariables);
 
             expect(await event.eventStatus()).to.equal("0");
@@ -222,7 +212,7 @@ describe('Functional event tests', function () {
                     "feldhalter@reher.hostingkunde.de",
                     "+49 176 3231242343",
                     2,
-                    {value: EVENT_FEE}
+                    {value: EVENT_DEPOSIT}
                 )
             ).to.be.revertedWith("The minimum seats are four");
 
@@ -230,7 +220,7 @@ describe('Functional event tests', function () {
             expect(await event.eventSeats()).to.equal(BigInt(4));
         });
 
-        it('should prevent to enter the event without the incorrect event fee', async function () {
+        it('should prevent to enter the event without the incorrect event deposit', async function () {
             const {event, owner, user1, user2, user3, user4} = await loadFixture(deployContractAndSetVariables);
 
             // TODO: expand the function letOneParticipantJoinsTheEvent with the possibility to override the sending ether
@@ -241,9 +231,9 @@ describe('Functional event tests', function () {
                     "smith@reher.hostingkunde.de",
                     "+49 176 1231242341",
                     8,
-                    {value: EVENT_FEE + parseEther("0.0020")},
+                    {value: EVENT_DEPOSIT + parseEther("0.0020")},
                 )
-            ).to.be.revertedWith("The correct eventFee has to be paid");
+            ).to.be.revertedWith("The correct eventDeposit has to be paid");
             expect(await event.participantCount()).to.equal(BigInt("0"));
 
             // TODO: expand the function letOneParticipantJoinsTheEvent with the possibility to override the sending ether
@@ -254,9 +244,9 @@ describe('Functional event tests', function () {
                     "smith@reher.hostingkunde.de",
                     "+49 176 1231242341",
                     8,
-                    {value: EVENT_FEE - parseEther("0.00055")},
+                    {value: EVENT_DEPOSIT - parseEther("0.00055")},
                 )
-            ).to.be.revertedWith("The correct eventFee has to be paid");
+            ).to.be.revertedWith("The correct eventDeposit has to be paid");
             expect(await event.participantCount()).to.equal(BigInt("0"));
 
             // TODO: expand the function letOneParticipantJoinsTheEvent with the possibility to override the sending ether
@@ -269,7 +259,7 @@ describe('Functional event tests', function () {
                     8,
                     {value: parseEther("0")},
                 )
-            ).to.be.revertedWith("The correct eventFee has to be paid");
+            ).to.be.revertedWith("The correct eventDeposit has to be paid");
             expect(await event.participantCount()).to.equal(BigInt("0"));
 
             // TODO: expand the function letOneParticipantJoinsTheEvent with the possibility to override the sending ether
@@ -282,7 +272,7 @@ describe('Functional event tests', function () {
                     8,
                     {value: parseEther("9999")},
                 )
-            ).to.be.revertedWith("The correct eventFee has to be paid");
+            ).to.be.revertedWith("The correct eventDeposit has to be paid");
             expect(await event.participantCount()).to.equal(BigInt("0"));
 
             // TODO: expand the function letOneParticipantJoinsTheEvent with the possibility to override the sending ether
@@ -295,7 +285,7 @@ describe('Functional event tests', function () {
                     8,
                     {value: parseEther("0.99999999999999999")},
                 )
-            ).to.be.revertedWith("The correct eventFee has to be paid");
+            ).to.be.revertedWith("The correct eventDeposit has to be paid");
             expect(await event.participantCount()).to.equal(BigInt("0"));
         });
     });
@@ -391,7 +381,7 @@ describe('Functional event tests', function () {
                 event.distributeEvent()
             ).to.be.revertedWith("You can only distribute 24 hours before the event started")
         });
-
+        // TODO: write test to check if the distribution of roles works correctly and that the first user remains the host. It should not shuttled
     });
 
     describe('Reclaiming event tests', function () {
@@ -514,59 +504,58 @@ describe('Functional event tests', function () {
     });
 
     describe('Handling expenses event tests', function () {
-    it('should be checked that the expenses entered correctly', async function () {
-        const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
+        it('should be checked that the expenses entered correctly', async function () {
+            const {event, owner, user1, user2, user3, user4, user5} = await loadFixture(deployContractAndSetVariables);
 
-        // Let 4 participants take part in the event
-        await letParticipantsJoinsTheEvent(event, 4);
+            // Let 4 participants take part in the event
+            await letParticipantsJoinsTheEvent(event, 4);
 
-        // Distribute the event
-        await time.increaseTo((await event.getEventClosingTime()));
-        await event.distributeEvent();
+            // Distribute the event
+            await time.increaseTo((await event.getEventClosingTime()));
+            await event.distributeEvent();
 
-        expect(await event.eventStatus()).to.equal(BigInt(1));
+            expect(await event.eventStatus()).to.equal(BigInt(1));
 
-        // take a snapshot of the current state of the blockchain
-        const snapshot = await takeSnapshot();
+            // take a snapshot of the current state of the blockchain
+            const snapshot = await takeSnapshot();
 
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
-        /*//                                                                                        //*/
-        /*//                    Test normal reclaimExpenses to the wrong time                       //*/
-        /*//                                                                                        //*/
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*//                                                                                        //*/
+            /*//                    Test normal reclaimExpenses to the wrong time                       //*/
+            /*//                                                                                        //*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-        await time.increaseTo((await event.eventDate()) - BigInt(50));
-        await expect(
-            event.connect(user1).reclaimExpenses(parseEther("0.0034"))
-        ).to.be.revertedWith("You can only enter your expenses after the event started and within the withdraw time");
+            await time.increaseTo((await event.eventDate()) - BigInt(50));
+            await expect(
+                event.connect(user1).reclaimExpenses(parseEther("0.0034"))
+            ).to.be.revertedWith("You can only enter your expenses after the event started and within the withdraw time");
 
-        await time.increaseTo((await event.eventDate()) + BigInt(WITHDRAW_TIME_FRAME) + BigInt(50));
-        await expect(
-            event.connect(user1).reclaimExpenses(parseEther("0.0034"))
-        ).to.be.revertedWith("You can only enter your expenses after the event started and within the withdraw time");
+            await time.increaseTo((await event.eventDate()) + BigInt(WITHDRAW_TIME_FRAME) + BigInt(50));
+            await expect(
+                event.connect(user1).reclaimExpenses(parseEther("0.0034"))
+            ).to.be.revertedWith("You can only enter your expenses after the event started and within the withdraw time");
 
-        await snapshot.restore();
+            await snapshot.restore();
 
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
-        /*//                                                                                        //*/
-        /*//                       Test normal reclaimExpenses to event time                        //*/
-        /*//                                                                                        //*/
-        /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*//                                                                                        //*/
+            /*//                       Test normal reclaimExpenses to event time                        //*/
+            /*//                                                                                        //*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
 
-        await time.increaseTo((await event.eventDate()));
+            await time.increaseTo((await event.eventDate()));
 
-        // enter reclaim expenses
-        await event.connect(owner).reclaimExpenses(parseEther("0.0034"));
-        await event.connect(user1).reclaimExpenses(parseEther("0.0025"));
-        await event.connect(user2).reclaimExpenses(parseEther("0.0019"));
+            // enter reclaim expenses
+            await event.connect(owner).reclaimExpenses(parseEther("0.0034"));
+            await event.connect(user1).reclaimExpenses(parseEther("0.0025"));
+            await event.connect(user2).reclaimExpenses(parseEther("0.0019"));
 
-        // // Check if the correct amount is send to the contract
-        expect(await event.connect(owner).getMyExpenses()).to.equal(parseEther("0.0034"));
-        expect(await event.connect(user1).getMyExpenses()).to.equal(parseEther("0.0025"));
-        expect(await event.connect(user2).getMyExpenses()).to.equal(parseEther("0.0019"));
-        expect(await event.connect(user3).getMyExpenses()).to.equal(parseEther("0"));
-
-    });
+            // // Check if the correct amount is send to the contract
+            expect(await event.connect(owner).getMyExpenses()).to.equal(parseEther("0.0034"));
+            expect(await event.connect(user1).getMyExpenses()).to.equal(parseEther("0.0025"));
+            expect(await event.connect(user2).getMyExpenses()).to.equal(parseEther("0.0019"));
+            expect(await event.connect(user3).getMyExpenses()).to.equal(parseEther("0"));
+        });
     });
 
     describe('Handling event compensation tests', function () {
@@ -800,30 +789,54 @@ describe('Functional event tests', function () {
             // Check Ended Event Status
             expect(await event.eventStatus()).to.equal(BigInt(2));
 
-            // TODO: check function checkExpensesAndConfirmation
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
+            /*//                                                                                        //*/
+            /*//                      Test EventStatus withdraw only once                               //*/
+            /*//                                                                                        //*/
+            /*////////////////////////////////////////////////////////////////////////////////////////////*/
+
+            await snapshot.restore();
+            await letOneParticipantJoinsTheEvent(event, MARC, user3);
+
+            // Distribute the event
+            await time.increaseTo((await event.getEventClosingTime()));
+            await event.distributeEvent();
+
+            // Reclaim Expenses
+            await time.increaseTo((await event.eventDate()));
+
+            await event.connect(owner).reclaimExpenses(parseEther("0"));
+            await event.connect(user1).reclaimExpenses(parseEther("0.0015"));
+            await event.connect(user2).reclaimExpenses(parseEther("0.0005"));
+            await event.connect(user3).reclaimExpenses(parseEther("0"));
+
+            await event.connect(user1).confirmParticipation(owner.address);
+            await event.connect(user2).confirmParticipation(user1.address);
+            await event.connect(user1).confirmParticipation(user2.address);
+            await event.connect(owner).confirmParticipation(user3.address);
+
+            // Check Ended Event Status
+            await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
+            // Check Distributed Event Status
+            expect(await event.eventStatus()).to.equal(BigInt(1));
+
+            // 4. withdraw
+            // console.log("4. withdraw");
+            await event.connect(owner).withdraw();
+            await event.connect(user1).withdraw();
+            await event.connect(user2).withdraw();
+            await event.connect(user3).withdraw();
+
+            // Check if the withdraw function only works only once
+            await expect(
+                event.connect(user2).withdraw()
+            ).to.be.revertedWith("The deposit can only once withdraw");
+
+            // Check Ended Event Status
+            expect(await event.eventStatus()).to.equal(BigInt(2));
+
             // TODO: check function calcEventCompensation
-
-            // Backup
-            //
-            // // test the enter expenses
-            // await event.connect(user1).payExpenses({
-            //     value: parseEther("0.0034")
-            // });
-            //
-            // await event.connect(user2).payExpenses({
-            //     value: parseEther("0.0025")
-            // });
-            //
-            // await event.connect(user3).payExpenses({
-            //     value: parseEther("0.0019")
-            // });
-            //
-            // // Check if the balance reduce for the users
-
-            // TODO: printOutBalances?
             // printOutBalances("after 1. withdraw");
-
-            // console.log("getExpenses: ", await event.connect(user1).showExpenses());
         });
     });
 
@@ -849,16 +862,17 @@ describe('Functional event tests', function () {
 
             await time.increaseTo((await event.eventDate()));
 
-            // You can't confirm yourself
+            // The user can't confirm itself
             await expect(
                 event.connect(user2).confirmParticipation(user2.address)
             ).to.be.revertedWith("Another user has to confirm you!");
 
-            // Only participants can confirm users, who joined the event
+            // Only participants can confirm users, who have joined the event
             await expect(
                 event.connect(user4).confirmParticipation(user2.address)
             ).to.be.revertedWith("Only participants can use this function");
 
+            // Participants can only confirm users, who have joined the event
             await expect(
                 event.connect(user2).confirmParticipation(user4.address)
             ).to.be.revertedWithCustomError(
@@ -869,20 +883,20 @@ describe('Functional event tests', function () {
             // take a snapshot of the current state of the blockchain
             const snapshot = await takeSnapshot();
 
-            // test the confirm Participation function
+            // Test the default confirm participation function
             expect(await event.connect(owner).isConfirmed()).to.false;
             expect(await event.connect(user1).isConfirmed()).to.false;
             expect(await event.connect(user2).isConfirmed()).to.false;
 
+            // Confirm the participations among each other
             await event.connect(user1).confirmParticipation(owner.address);
             await event.connect(user2).confirmParticipation(user1.address);
             await event.connect(user1).confirmParticipation(user2.address);
 
+            // Test the confirm participation function works
             expect(await event.connect(owner).isConfirmed()).to.true;
             expect(await event.connect(user1).isConfirmed()).to.true;
             expect(await event.connect(user2).isConfirmed()).to.true;
-
-            // console.log("getExpenses: ", await event.connect(user1).showExpenses());
         });
 
         it('should be checked that the event status works correctly with the participation confirmation', async function () {
@@ -903,16 +917,19 @@ describe('Functional event tests', function () {
                 event.connect(user2).confirmParticipation(user2.address)
             ).to.be.revertedWith("Another user has to confirm you!");
 
-
+            // Test the default confirm participation function
             expect(await event.connect(owner).isConfirmed()).to.false;
             expect(await event.connect(user1).isConfirmed()).to.false;
             expect(await event.connect(user2).isConfirmed()).to.false;
 
+            // Confirm the participations among each other
             await event.connect(user2).confirmParticipation(user1.address);
-            expect(await event.connect(user1).isConfirmed()).to.true;
             await event.connect(user1).confirmParticipation(user2.address);
-            expect(await event.connect(user2).isConfirmed()).to.true;
             await event.connect(user1).confirmParticipation(owner.address);
+
+            // Test the confirm participation function works
+            expect(await event.connect(user1).isConfirmed()).to.true;
+            expect(await event.connect(user2).isConfirmed()).to.true;
             expect(await event.connect(owner).isConfirmed()).to.true;
 
             // Check Ended status
@@ -924,9 +941,6 @@ describe('Functional event tests', function () {
             await expect(
                 event.connect(user2).confirmParticipation(owner.address)
             ).to.be.revertedWith("This event has to be distributed or ended");
-
-            // TODO: Check the withdraw time
-            // console.log("getExpenses: ", await event.getExpenses());
         });
     });
 
@@ -967,7 +981,6 @@ describe('Functional event tests', function () {
     //     });
     // });
 
-    //
     // it('is not clear, difference walletUser1 and user1', async function () {
     //     const {event, owner, user1, user2, user3, user4} = await loadFixture(deployContractAndSetVariables);
     //
@@ -1006,7 +1019,7 @@ describe('Functional event tests', function () {
     //     expect(getParticipants[0].lastname).to.equal("_lastname");
     //     expect(getParticipants[0].email).to.equal("_email");
     //     expect(getParticipants[0].telephone).to.equal("_telephone");
-    //     expect(getParticipants[0].event_fee).to.equal("1000000000000000000");
+    //     expect(getParticipants[0].event_deposit).to.equal("1000000000000000000");
     //     expect(getParticipants[0].seats).to.equal(BigInt("6"));
     //
     //     const participantCount = await event.participantCount();
@@ -1075,7 +1088,7 @@ describe('Functional event tests', function () {
             PARTICIPANTS_ARRAY[userCount].email,
             PARTICIPANTS_ARRAY[userCount].phone,
             PARTICIPANTS_ARRAY[userCount].seats,
-            {value: EVENT_FEE}
+            {value: EVENT_DEPOSIT}
         );
     }
 

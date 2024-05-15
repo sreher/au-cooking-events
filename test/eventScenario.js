@@ -6,7 +6,7 @@ const {JsonRpcProvider, Wallet, parseEther, formatUnits} = require("ethers");
 const MIN_PARTICIPANTS = 4;
 const HOUR_IN_SECONDS = 3600;
 const DAY_IN_SECONDS = 86400;
-const EVENT_FEE = parseEther("0.0010");
+const EVENT_DEPOSIT = parseEther("0.0010");
 const ENDED_TIME_FRAME = 5 * HOUR_IN_SECONDS;
 const CLOSING_TIME_FRAME = 24 * HOUR_IN_SECONDS;
 const WITHDRAW_TIME_FRAME = 48 * HOUR_IN_SECONDS;
@@ -76,15 +76,14 @@ describe('EventScenario', function () {
     // and reset Hardhat Network to that snapshot in every test.
     async function deployContractAndSetVariables() {
         const Event = await ethers.getContractFactory('Event');
-        // Next Event
+
         const event = await Event.deploy(
-            "First Cooking Event",
+            "3-course barbecue menu near the city park",
             "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed.",
             (await time.latest()) + (14 * DAY_IN_SECONDS),
-            EVENT_FEE
+            EVENT_DEPOSIT
         );
         const [owner, user1, user2, user3, user4, user5] = await ethers.getSigners();
-
         return {event, owner, user1, user2, user3, user4, user5};
     }
 
@@ -106,7 +105,7 @@ describe('EventScenario', function () {
             expect(await event.participantCount()).to.equal(BigInt("5"));
         });
 
-        it('the event will be clossed and distributed', async function () {
+        it('the event will be closed and distributed', async function () {
             const {event, owner, user1 } = await loadFixture(deployContractAndSetVariables);
 
             // six user will join the event
@@ -129,25 +128,25 @@ describe('EventScenario', function () {
         it('the participants can confirm among each other', async function () {
             const {event, owner, user1, user2, user3, user4, user5, user6 } = await loadFixture(deployContractAndSetVariables);
 
-            // six user will join the event
             await letParticipantsJoinsTheEvent(event, 5);
             expect(await event.eventStatus()).to.equal("0");
             expect(await event.participantCount()).to.equal(BigInt("5"));
 
-            // one user will leave the event
+            // One user will leave the event
             await event.connect(user1).cancelParticipant();
             expect(await event.participantCount()).to.equal(BigInt("4"));
 
-            // time advance, so the event will be closed
+            // Time advance, so the event will be closed
             await time.increaseTo((await event.getEventClosingTime()));
 
-            // the participants will see their roles
+            // The participants will see their roles
             await event.distributeEvent();
             expect(await event.eventStatus()).to.equal("1");
 
+            // Time advance, so the event will be in the Ended Time Frame
             await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
 
-            // the event users confirmed that they participate
+            // The event users confirmed that they participate
             await event.connect(owner).confirmParticipation(user3.address);
             await event.connect(user2).confirmParticipation(user4.address);
             await event.connect(user2).confirmParticipation(owner.address);
@@ -159,59 +158,57 @@ describe('EventScenario', function () {
         it('the participants enter their expenses for the evening', async function () {
             const {event, owner, user1, user2, user3, user4, user5, user6 } = await loadFixture(deployContractAndSetVariables);
 
-            // six user will join the event
             await letParticipantsJoinsTheEvent(event, 5);
             expect(await event.eventStatus()).to.equal("0");
             expect(await event.participantCount()).to.equal(BigInt("5"));
 
-            // one user will leave the event
+            // One user will leave the event
             await event.connect(user1).cancelParticipant();
             expect(await event.participantCount()).to.equal(BigInt("4"));
 
-            // time advance, so the event will be closed
+            // Time advance, so the event will be closed
             await time.increaseTo((await event.getEventClosingTime()));
 
-            // the participants will see their roles
+            // The participants will see their roles
             await event.distributeEvent();
             expect(await event.eventStatus()).to.equal("1");
 
+            // Time advance, so the event has started
             await time.increaseTo((await event.eventDate()));
 
-            // the participants can enter there expenses for the evening
+            // The participants can enter there expenses for the evening
             await event.connect(owner).reclaimExpenses(parseEther("0"));
             await event.connect(user2).reclaimExpenses(parseEther("0.0034"));
             await event.connect(user3).reclaimExpenses(parseEther("0.0025"));
             await event.connect(user4).reclaimExpenses(parseEther("0.0019"));
-            // Check if the correct amount is send to the contract
+            // Check if the correct amount is sending to the contract
             let [user4Expenses, user4Reclaimed] = await event.connect(user4).getUserExpenses();
             expect(user4Expenses).to.equal(parseEther("0.0019"));
             expect(user4Reclaimed).to.be.true;
-
-            await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
         });
 
         it('the event is over. participants can widthdraw their deposit  minus the event compensation', async function () {
             const {event, owner, user1, user2, user3, user4, user5, user6 } = await loadFixture(deployContractAndSetVariables);
 
-            // six user will join the event
             await letParticipantsJoinsTheEvent(event, 5);
             expect(await event.eventStatus()).to.equal("0");
             expect(await event.participantCount()).to.equal(BigInt("5"));
 
-            // one user will leave the event
+            // One user will leave the event
             await event.connect(user1).cancelParticipant();
             expect(await event.participantCount()).to.equal(BigInt("4"));
 
-            // time advance, so the event will be closed
+            // Time advance, so the event will be closed
             await time.increaseTo((await event.getEventClosingTime()));
 
-            // the participants will see their roles
+            // The participants will see their roles
             await event.distributeEvent();
             expect(await event.eventStatus()).to.equal("1");
 
+            // Time advance, so the event will start
             await time.increaseTo((await event.eventDate()));
 
-            // the participants can enter there expenses for the evening
+            // The participants can enter there expenses for the evening
             await event.connect(owner).reclaimExpenses(parseEther("0"));
             await event.connect(user2).reclaimExpenses(parseEther("0.0004"));
             await event.connect(user3).reclaimExpenses(parseEther("0.0015"));
@@ -221,9 +218,10 @@ describe('EventScenario', function () {
             expect(user4Expenses).to.equal(parseEther("0.0019"));
             expect(user4Reclaimed).to.be.true;
 
+            // Time advance, so the event will be in the ended time frame
             await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) - BigInt(30)));
 
-            // the event users confirmed that they participate
+            // The event users confirmed that they participate
             await event.connect(owner).confirmParticipation(user3.address);
             await event.connect(user2).confirmParticipation(user4.address);
             await event.connect(user2).confirmParticipation(owner.address);
@@ -231,14 +229,14 @@ describe('EventScenario', function () {
             // check if function works
             expect(await event.connect(user2).isConfirmed()).to.true;
 
+            // Time advance, so the event will be after the ended time frame
             await time.increaseTo((await event.eventDate() + BigInt(ENDED_TIME_FRAME) + BigInt(30)));
 
-            // the participants withdraw their money, minus an event compensation
+            // The participants withdraw their money, minus an event compensation
             await event.connect(owner).withdraw();
             await event.connect(user2).withdraw();
             await event.connect(user3).withdraw();
             await event.connect(user4).withdraw();
-            // expect(await event.connect(user4).getMyEventCompensation()).to.equal(parseEther("0.0005"));
             expect(await event.connect(user4).getWithDraw()).to.be.true;
         });
 
@@ -258,28 +256,7 @@ describe('EventScenario', function () {
             PARTICIPANTS_ARRAY[userCount].email,
             PARTICIPANTS_ARRAY[userCount].phone,
             PARTICIPANTS_ARRAY[userCount].seats,
-            {value: EVENT_FEE}
+            {value: EVENT_DEPOSIT}
         );
-    }
-
-    async function printOutBalances(message) {
-        console.log(message);
-        const balanceEvent = await ethers.provider.getBalance(event.getAddress());
-        console.log("balanceEvent", balanceEvent);
-        const balance0ETH = await ethers.provider.getBalance(owner.address);
-        console.log("balance0ETH", balance0ETH);
-        const balance1ETH = await ethers.provider.getBalance(user1.address);
-        console.log("balance1ETH", balance1ETH);
-        const balance2ETH = await ethers.provider.getBalance(user2.address);
-        console.log("balance2ETH", balance2ETH);
-        const balance3ETH = await ethers.provider.getBalance(user3.address);
-        console.log("balance3ETH", balance3ETH);
-
-        // const balanceEvent_start = await ethers.provider.getBalance(event.getAddress());
-        // const balance0ETH_start = await ethers.provider.getBalance(owner.address);
-        // const balance1ETH_start = await ethers.provider.getBalance(user1.address);
-        // const balance2ETH_start = await ethers.provider.getBalance(user2.address);
-        // const balance3ETH_start = await ethers.provider.getBalance(user3.address);
-        // const balance4ETH_start = await ethers.provider.getBalance(user4.address);
     }
 });

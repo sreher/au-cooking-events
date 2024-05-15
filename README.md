@@ -22,12 +22,12 @@ Ultimately, our project promises to deliver unforgettable experiences, where str
 * create an event 
 * people can register until 24 hours event starts and free seats are available, minimum are 4 seats
 * people deposit money to participate and pay for the ingredience of the meals 
-* people can unregister until 24 hours before the event without losing their event fee 
+* people can unregister until 24 hours before the event without losing their event deposit 
 * 24 hours before the event, the registation will be closed and more details about the event will be displayed to the participants
 * when the event starts, the participants can do two things: confirmed other people and reclaim their expensed for the event
 * the event will end 5 hours after the event start
 * when the withdraw time is over, a event compensation will be calculated and the participant can payout their money
-* when a participant will not appear to the event and hasn't unregister, the event fee will be distributed to the other participants, so they pay less
+* when a participant will not appear to the event and hasn't unregister, the event deposit will be distributed to the other participants, so they pay less
 * the period until 48 hours after the event starts, the participants can confirmed and reclaim their expenses
 
 ## Gettings started
@@ -71,7 +71,7 @@ The command "npm test" runs the complete test suite with all test cases.
       ✔ should be tested that participants can join the events
       ✔ should be tested that the event seats restrictions works
       ✔ should be checked that the minimum event seats is right
-      ✔ should prevent to enter the event without the incorrect event fee
+      ✔ should prevent to enter the event without the incorrect event deposit
     Distributing event tests
       ✔ should revert with message: The minimum number of participants has not been reached
       ✔ should revert with message: Only the owner can call this function
