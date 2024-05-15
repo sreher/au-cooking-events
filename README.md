@@ -30,6 +30,10 @@ Ultimately, our project promises to deliver unforgettable experiences, where str
 * when a participant will not appear to the event and hasn't unregister, the event deposit will be distributed to the other participants, so they pay less
 * the period until 48 hours after the event starts, the participants can confirmed and reclaim their expenses
 
+## Event Status Overview
+
+![img.png](event_status_overview.png)
+
 ## Gettings started
 
 This project has no frontend yet. The fokus was on the testing part. There is a more descriptive test suite with a scenario and the complete test suite with all tests.
