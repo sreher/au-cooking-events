@@ -147,31 +147,6 @@ contract Event {
         participantCount++;
     }
 
-//    /// @notice All user will be removed from the event. The event deposit will be payed back
-//    function cancelEvent() external onlyOwner returns(bool) {
-//        require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
-//        uint participantsCounter = participants_a.length;
-//        for(uint i=0; i < participantsCounter; i++) {
-//            // TODO: check if i has to introduce
-//            uint _event_deposit = participants_a[0].event_deposit;
-//            address participant = participants_a[0].participant;
-//            (bool success, ) = participant.call{value: _event_deposit}("");
-//            require(success, "send back event deposit transaction failed");
-//            // The participant leaves the event
-//            // Move the last element into the place to delete
-//            participants_a[0] = participants_a[participants_a.length - 1];
-//            // Remove the last element
-//            participants_a.pop();
-//
-//            delete participant_m[msg.sender];
-//            participant_m[msg.sender].isValue = false;
-//            // Reduce participant count
-//            participantCount--;
-//        }
-//        eventStatus = EventStatus.CANCELED;
-//        return true;
-//    }
-
     /// @notice Remove a user from an event. The event deposit will be payed back.
     function cancelParticipant() external notOwner onlyParticipants {
         require(eventStatus == EventStatus.ACTIVE, "This event isn't active anymore");
@@ -332,15 +307,8 @@ contract Event {
     function withdraw() external onlyParticipants returns(bool) {
         require(eventStatus == EventStatus.DISTRIBUTED || eventStatus == EventStatus.ENDED, "Expenses can only be entered for distributed or ended events");
         require(block.timestamp >= eventDate + ENDED_TIME_FRAME && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME, "You can only withdraw your ether when the event has ended and within the withdraw time frame");
-        // TODO: to be tested
         uint _index = participant_m[msg.sender].index;
         require(!expenses_a[_index].withdraw, "The deposit can only once withdraw");
-        // At the moment the check is not necessary because the withdraw is only possible afer the withdraw time
-        // require(checkExpensesAndConfirmation(), "Not all participation are confirmed or not all expenses reclaimed");
-
-        // TODO: It should be possible to withdraw your money earlier, when all participants are confirmed.
-        // TODO: What happens, when no participants are confirmed in the time frame?
-        // TODO: What happens, when no participants withdraw their money?
 
         if (!compensationCalculated) {
             // Only run once, to calculate the event compensation
@@ -350,13 +318,8 @@ contract Event {
 
         // Send the compensation to the msg.sender
         uint _event_compensation = expenses_a[_index].event_compensation;
-        // console.log("Balance before: ", address(this).balance);
-        // console.log("User Balance before: ", msg.sender.balance);
-        // console.log(msg.sender, " -- ", _event_compensation);
         (bool success, ) = msg.sender.call{value: _event_compensation}("");
         require(success, "send back event compensation - transaction failed");
-        // console.log("Balance after: ", address(this).balance);
-        // console.log("User Balance after: ", msg.sender.balance);
         expenses_a[_index].withdraw = true;
 
         setEventStatusEnded();
@@ -364,20 +327,6 @@ contract Event {
     }
 
     /************************  Utility functions  ************************************************/
-//
-//    function checkExpensesAndConfirmation() view internal onlyParticipants returns(bool) {
-//        // When all confirmed and reclaim their expenses or time over
-////        console.log("checkExpensesAndConfirmation");
-//        for (uint i = 0; i < expenses_a.length; i++) {
-//            if (!expenses_a[i].reclaimed || !expenses_a[i].confirmed) {
-//                // When the request is out of withdraw time, then the process should continue, ex. the calc the compensation
-//                if(block.timestamp >= eventDate && block.timestamp <= eventDate + WITHDRAW_TIME_FRAME) {
-//                    return false;
-//                }
-//            }
-//        }
-//        return true;
-//    }
 
     /// @notice Set the Event Status to ENDED
     function setEventStatusEnded() internal {
